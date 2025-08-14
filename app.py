@@ -40,11 +40,12 @@ import pyrebase
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-# URL del logo de la aplicación
-LOGO_URL = "https://i.imgur.com/iZ6w2fJ.png"
+# AÑADIDO: URL del logo actualizada a una fuente estable
+LOGO_URL = "https://i.imgur.com/6k23S3L.png"
 
 # Configuración de la página de Streamlit (debe ser el primer comando de st)
 st.set_page_config(layout="wide", page_title="BIOETHICARE 360", page_icon=LOGO_URL)
+
 
 # --- 3. Gestión del Estado de la Sesión ---
 
