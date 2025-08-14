@@ -1,4 +1,4 @@
-# BIOETHICARE 360 2.0 - Con Autenticación y Consentimiento Informado
+# BIOETHICARE 360º
 # Autores: Anderson Díaz Pérez & Joseph Javier Sánchez Acuña
 
 # --- 1. Importaciones ---
@@ -558,10 +558,10 @@ def display_main_app():
             st.rerun()
         st.markdown("---")
 
-    st.title("BIOETHICARE 360 🏥 2.0")
+    st.title("BIOETHICARE 360º 🏥")
     with st.expander("Autores"):
         st.markdown("""
-        - **Joseph Javier Sánchez Acuña**: Ingeniero Industrial, Experto en Inteligencia Artificial.
+        - **Joseph Javier Sánchez Acuña**: Ingeniero industrial, Desarrollador de Aplicaciones Clínicas, Experto en Inteligencia Artificial.
         - **Anderson Díaz Pérez**: Doctor en Bioética, Doctor en Salud Pública, Magíster en Ciencias Básicas Biomédicas (Énfasis en Inmunología), Especialista en Inteligencia Artificial.
         """)
     st.markdown("---")
@@ -795,3 +795,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
