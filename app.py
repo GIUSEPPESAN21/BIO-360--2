@@ -1,4 +1,4 @@
-# BIOETHICARE 360º
+# BIOETHICARE 360 2.0 - Con Autenticación y Consentimiento Informado
 # Autores: Anderson Díaz Pérez & Joseph Javier Sánchez Acuña
 
 # --- 1. Importaciones ---
@@ -17,10 +17,10 @@ import time
 import logging
 
 # Importaciones para PDF
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, PageBreak
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, PageBreak, HRFlowable
 from reportlab.lib.pagesizes import letter
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.lib.enums import TA_CENTER, TA_JUSTIFY
+from reportlab.lib.enums import TA_CENTER, TA_JUSTIFY, TA_LEFT
 from reportlab.lib.units import inch
 from reportlab.lib import colors
 
@@ -36,7 +36,7 @@ logger = logging.getLogger(__name__)
 # --- 3. Configuración Inicial y Estado de la Sesión ---
 st.set_page_config(layout="wide", page_title="BIOETHICARE 360")
 
-# --- MODIFICADO: Se añade 'user' al estado de la sesión ---
+# --- MODIFICADO: Se añade 'user' y 'consentimiento_texto' al estado de la sesión ---
 session_defaults = {
     'reporte': None,
     'temp_dir': None,
@@ -47,13 +47,14 @@ session_defaults = {
     'ai_clinical_analysis_output': "",
     'clinical_history_input': "",
     'key_counter': 0,
-    'user': None # Para almacenar la información del usuario autenticado
+    'user': None, # Para almacenar la información del usuario autenticado
+    'consentimiento_texto': None # AÑADIDO: Para almacenar el texto del consentimiento
 }
 for key, default_value in session_defaults.items():
     if key not in st.session_state:
         st.session_state[key] = default_value
 
-# --- 4. Funciones Utilitarias (Sin Cambios) ---
+# --- 4. Funciones Utilitarias ---
 def safe_int(value, default=0):
     if value is None or value == '': return default
     try: return int(value)
@@ -67,7 +68,7 @@ def log_error(error_msg, exception=None):
     logger.error(f"BIOETHICARE ERROR: {error_msg}")
     if exception: logger.error(f"Exception details: {str(exception)}")
 
-# --- 5. MÓDULO DE ANÁLISIS ÉTICO (Sin Cambios) ---
+# --- 5. MÓDULO DE ANÁLISIS ÉTICO ---
 def verificar_sesgo_etico(caso):
     advertencias = []
     recomendaciones = []
@@ -135,7 +136,6 @@ def generar_grafico_equilibrio_etico(caso):
 # --- 6. Conexión con Firebase ---
 @st.cache_resource
 def initialize_firebase_admin():
-    """Inicializa el SDK de ADMIN para operaciones de base de datos del backend."""
     try:
         if "firebase_credentials" in st.secrets:
             creds_dict = dict(st.secrets["firebase_credentials"])
@@ -154,12 +154,9 @@ def initialize_firebase_admin():
 
 @st.cache_resource
 def initialize_firebase_auth():
-    """Inicializa el SDK de CLIENTE para autenticación de usuarios."""
     try:
-        # La forma correcta y segura es leer desde los secrets.
         if "firebase_client_config" in st.secrets:
             firebase_client_config = dict(st.secrets["firebase_client_config"])
-            # Asegurarse de que el apiKey no sea un valor de ejemplo.
             if "TU_API_KEY" in firebase_client_config.get("apiKey", ""):
                  log_error("La clave de API en secrets.toml parece ser un valor de ejemplo.")
                  st.error("Error de configuración: Por favor, verifica que la sección [firebase_client_config] en tu archivo secrets.toml contenga las credenciales reales.")
@@ -175,15 +172,22 @@ def initialize_firebase_auth():
 db = initialize_firebase_admin()
 firebase_auth_app = initialize_firebase_auth()
 
-# --- 7. Base de Conocimiento (Sin Cambios) ---
-dilemas_opciones = {
-    "Dilemas Éticos en Neonatología": {}, "Limitación del Esfuerzo Terapéutico (Adultos/Pediatría)": {},
-    "Consentimiento Informado": {}, "Confidencialidad y Manejo de Datos": {}, "Cuidados Paliativos y Futilidad": {},
-    "Eutanasia y Muerte Digna": {}, "Asignación de Recursos Escasos": {},
-    "Ética en la Genética y Medicina Predictiva": {}, "Conflictos de Interés": {},
-}
+# --- 7. Base de Conocimiento ---
+# AÑADIDO: Carga de dilemas desde JSON
+def cargar_dilemas():
+    try:
+        with open('dilemas.json', 'r', encoding='utf-8') as f:
+            return json.load(f)
+    except FileNotFoundError:
+        log_error("El archivo dilemas.json no fue encontrado.")
+        st.error("Error: No se pudo cargar la base de conocimiento de dilemas.")
+        return {}
 
-# --- 8. Clases de Modelo (Sin Cambios) ---
+dilemas_data = cargar_dilemas()
+dilemas_opciones = {k: {} for k in dilemas_data.keys()}
+
+
+# --- 8. Clases de Modelo ---
 class CasoBioetico:
     def __init__(self, **kwargs):
         self.nombre_paciente = safe_str(kwargs.get('nombre_paciente'), 'N/A')
@@ -211,7 +215,7 @@ class CasoBioetico:
             "justicia": safe_int(kwargs.get(f'nivel_justicia_{prefix}')),
         }
 
-# --- 9. Funciones de Generación de Reportes (Sin Cambios) ---
+# --- 9. Funciones de Generación de Reportes ---
 def generar_reporte_completo(caso, dilema_sugerido, chat_history, chart_jsons, ethical_analysis):
     resumen_paciente = f"Paciente {caso.nombre_paciente}, {caso.edad} años, género {caso.genero}, condición {caso.condicion}."
     if caso.semanas_gestacion > 0:
@@ -292,7 +296,95 @@ def crear_reporte_pdf_completo(data, filename):
         log_error(f"Error generando PDF {filename}", e)
         raise e
 
-# --- 10. Función para llamar a Gemini API (Sin Cambios) ---
+# --- AÑADIDO: Funciones para el Consentimiento Informado ---
+def generar_texto_consentimiento(caso):
+    """Genera el texto del consentimiento informado basado en el caso."""
+    dilema_info = dilemas_data.get(caso.dilema_etico, {})
+    
+    riesgos = "\\n".join([f"- {r}" for r in dilema_info.get("riesgos", ["No especificados"])])
+    beneficios = "\\n".join([f"- {b}" for b in dilema_info.get("beneficios", ["No especificados"])])
+    alternativas = "\\n".join([f"- {a}" for a in dilema_info.get("alternativas", ["No especificadas"])])
+    normativas = "\\n".join([f"- {n}" for n in dilema_info.get("normativas", ["No especificadas"])])
+
+    texto = f\"\"\"
+CONSENTIMIENTO/ASENTIMIENTO INFORMADO (BIOETHICARE 360)
+
+Fecha: {datetime.now().strftime("%Y-%m-%d")}
+ID del Caso: {caso.historia_clinica}
+
+------------------------------------------------------------------
+DATOS DEL PACIENTE
+------------------------------------------------------------------
+Nombre: {caso.nombre_paciente}
+Edad: {caso.edad} años
+Género: {caso.genero}
+Dilema Ético Principal: {caso.dilema_etico}
+
+------------------------------------------------------------------
+INFORMACIÓN SOBRE LA DECISIÓN
+------------------------------------------------------------------
+En el contexto de su situación clínica, se ha identificado un dilema ético principal relacionado con "{caso.dilema_etico}". A continuación, se presenta la información relevante para que usted (o su representante) pueda tomar una decisión informada.
+
+1. RIESGOS POTENCIALES:
+{riesgos}
+
+2. BENEFICIOS ESPERADOS:
+{beneficios}
+
+3. ALTERNATIVAS DISPONIBLES:
+{alternativas}
+
+4. MARCO NORMATIVO Y ÉTICO:
+Esta deliberación se enmarca en las siguientes normativas y principios:
+{normativas}
+
+------------------------------------------------------------------
+DECLARACIÓN Y FIRMA
+------------------------------------------------------------------
+Declaro que he leído (o me han leído) y comprendido la información anterior. He tenido la oportunidad de hacer preguntas y todas han sido respondidas a mi satisfacción.
+
+Entiendo que mi decisión es voluntaria y que puedo retirarla en cualquier momento sin que ello afecte la calidad de mi atención médica.
+
+Firma del Paciente/Tutor Legal: _________________________
+Nombre: _________________________
+Fecha: _________________________
+
+Firma del Profesional de la Salud: _________________________
+Nombre: {caso.nombre_analista}
+Fecha: _________________________
+\"\"\"
+    return texto
+
+def crear_consentimiento_pdf(texto, filename):
+    """Crea un archivo PDF a partir del texto del consentimiento."""
+    try:
+        doc = SimpleDocTemplate(filename, pagesize=letter, topMargin=inch/2, bottomMargin=inch/2)
+        styles = getSampleStyleSheet()
+        story = []
+        
+        h1 = ParagraphStyle(name='H1', fontSize=14, fontName='Helvetica-Bold', alignment=TA_CENTER, spaceAfter=18)
+        h2 = ParagraphStyle(name='H2', fontSize=11, fontName='Helvetica-Bold', spaceBefore=10, spaceAfter=4, textColor=colors.darkblue)
+        body = ParagraphStyle(name='Body', fontSize=10, fontName='Helvetica', leading=14, alignment=TA_LEFT, spaceAfter=8)
+        
+        lines = texto.split('\\n')
+        for line in lines:
+            if line.isupper() and not line.startswith("-"):
+                if "CONSENTIMIENTO" in line:
+                    story.append(Paragraph(line, h1))
+                else:
+                    story.append(Spacer(1, 0.1*inch))
+                    story.append(Paragraph(line, h2))
+                    story.append(HRFlowable(width="100%", thickness=1, color=colors.black))
+            else:
+                story.append(Paragraph(line.replace('\\n', '<br/>'), body))
+
+        doc.build(story)
+        logger.info(f"PDF de consentimiento generado: {filename}")
+    except Exception as e:
+        log_error(f"Error generando PDF de consentimiento {filename}", e)
+        raise e
+
+# --- 10. Función para llamar a Gemini API ---
 def llamar_gemini(prompt, api_key):
     api_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={api_key}"
     headers = {"Content-Type": "application/json"}
@@ -315,7 +407,7 @@ def llamar_gemini(prompt, api_key):
         st.error(f"Ocurrió un error inesperado al contactar a la IA: {e}")
         return "Error inesperado."
 
-# --- 11. Funciones de UI (Sin Cambios en display_case_details) ---
+# --- 11. Funciones de UI ---
 def display_case_details(report_data, key_prefix):
     try:
         case_id = safe_str(report_data.get('ID del Caso', 'caso_desconocido'))
@@ -411,7 +503,6 @@ def cleanup_temp_dir():
         log_error("Error limpiando directorio temporal", e)
         st.session_state.temp_dir = tempfile.mkdtemp()
 
-# --- AÑADIDO: Función para la interfaz de autenticación ---
 def display_login_form():
     """Muestra el formulario de inicio de sesión y registro."""
     st.header("BIOETHICARE 360 - Acceso de Usuario")
@@ -453,11 +544,9 @@ def display_login_form():
                 else:
                     st.warning("Por favor, introduce un email y contraseña válidos para registrarte.")
 
-# --- AÑADIDO: Función que contiene la aplicación principal ---
 def display_main_app():
     """Muestra la aplicación principal una vez que el usuario está autenticado."""
     
-    # Barra lateral con información del usuario y botón de logout
     with st.sidebar:
         st.markdown("### Usuario Conectado")
         if st.session_state.user and isinstance(st.session_state.user, dict):
@@ -469,11 +558,10 @@ def display_main_app():
             st.rerun()
         st.markdown("---")
 
-    # Interfaz principal de la aplicación (tu código original)
-    st.title("BIOETHICARE 360º 🏥")
+    st.title("BIOETHICARE 360 🏥 2.0")
     with st.expander("Autores"):
         st.markdown("""
-        - **Joseph Javier Sánchez Acuña**: Ingeniero industrial, Desarrollador de Aplicaciones Clínicas, Experto en Inteligencia Artificial.
+        - **Joseph Javier Sánchez Acuña**: Ingeniero Industrial, Experto en Inteligencia Artificial.
         - **Anderson Díaz Pérez**: Doctor en Bioética, Doctor en Salud Pública, Magíster en Ciencias Básicas Biomédicas (Énfasis en Inmunología), Especialista en Inteligencia Artificial.
         """)
     st.markdown("---")
@@ -482,7 +570,6 @@ def display_main_app():
     if not GEMINI_API_KEY:
         st.warning("⚠️ Clave de API de Gemini no encontrada. Funciones de IA deshabilitadas.", icon="⚠️")
     
-    # El resto de tu lógica de la aplicación va aquí
     tab_analisis, tab_chatbot, tab_consultar = st.tabs(["**Análisis de Caso**", "**Asistente de Bioética (Chatbot)**", "**Consultar Casos Anteriores**"])
 
     with tab_analisis:
@@ -510,7 +597,6 @@ def display_main_app():
                 semanas_gestacion = st.number_input("Semanas Gestación (si aplica)", 0, 42, value=0)
             with col2:
                 historia_clinica = st.text_input("Nº Historia Clínica / ID del Caso")
-                # --- MODIFICADO: Se autocompleta el nombre del analista ---
                 analista_email = st.session_state.user.get('email', 'Analista Desconocido') if st.session_state.user else 'Analista Desconocido'
                 nombre_analista = st.text_input("Nombre del Analista", value=analista_email, disabled=True)
                 condicion = st.selectbox("Condición", ["Estable", "Crítico", "Terminal", "Neonato"])
@@ -540,6 +626,9 @@ def display_main_app():
                 nivel_no_maleficencia_comite = c[2].slider("No Maleficencia",0,5,3,key="nmc")
                 nivel_justicia_comite = c[3].slider("Justicia",0,5,3,key="jc")
             
+            # AÑADIDO: Checkbox para generar consentimiento
+            generar_consentimiento = st.checkbox("📄 Generar Consentimiento Informado", value=False)
+
             submitted = st.form_submit_button("Analizar Caso y Generar Dashboard", use_container_width=True)
 
         if submitted:
@@ -571,9 +660,14 @@ def display_main_app():
                     st.session_state.reporte = generar_reporte_completo(caso, st.session_state.dilema_sugerido, [], chart_jsons, analisis_etico)
                     st.session_state.case_id = caso.historia_clinica
                     
+                    # AÑADIDO: Lógica para generar y guardar el consentimiento
+                    if generar_consentimiento:
+                        st.session_state.consentimiento_texto = generar_texto_consentimiento(caso)
+                    else:
+                        st.session_state.consentimiento_texto = None
+
                     if db:
                         try:
-                            # --- MODIFICADO: Guarda el caso bajo el UID del usuario ---
                             user_uid = st.session_state.user.get('localId')
                             if user_uid:
                                 db.collection('usuarios').document(user_uid).collection('casos').document(caso.historia_clinica).set(st.session_state.reporte)
@@ -590,7 +684,7 @@ def display_main_app():
             st.markdown("---")
             display_case_details(st.session_state.reporte, key_prefix="active")
             
-            a1, a2 = st.columns([3, 1])
+            a1, a2, a3 = st.columns([2, 1, 1]) # MODIFICADO: Añadida una columna para el botón de consentimiento
             if a1.button("🤖 Generar/Regenerar Análisis Deliberativo con Gemini", use_container_width=True, key="gen_analysis_button"):
                 if GEMINI_API_KEY:
                     with st.spinner("Contactando a Gemini..."):
@@ -611,6 +705,18 @@ def display_main_app():
             except Exception as e:
                 a2.error("Error al generar PDF.")
                 log_error("Error en la sección de descarga de PDF", e)
+
+            # AÑADIDO: Botón y lógica para descargar el consentimiento
+            if st.session_state.consentimiento_texto:
+                try:
+                    consent_path = os.path.join(st.session_state.temp_dir, f"Consentimiento_{safe_str(st.session_state.case_id, 'consent')}.pdf")
+                    crear_consentimiento_pdf(st.session_state.consentimiento_texto, consent_path)
+                    with open(consent_path, "rb") as consent_file:
+                        a3.download_button("✍️ Descargar Consentimiento", consent_file, os.path.basename(consent_path), "application/pdf", use_container_width=True, key="download_consent_button")
+                except Exception as e:
+                    a3.error("Error al generar PDF de consentimiento.")
+                    log_error("Error en la sección de descarga de consentimiento", e)
+
 
     with tab_chatbot:
         st.header("🤖 Asistente de Bioética con Gemini", anchor=False)
@@ -667,7 +773,6 @@ def display_main_app():
                 if not user_uid:
                     st.warning("No se puede obtener el ID de usuario para consultar casos.")
                 else:
-                    # --- MODIFICADO: Lee los casos de la subcolección del usuario ---
                     casos_ref = db.collection('usuarios').document(user_uid).collection('casos').stream()
                     casos = {caso.id: caso.to_dict() for caso in casos_ref}
                     if not casos:
@@ -681,7 +786,6 @@ def display_main_app():
                 st.error(f"Ocurrió un error al consultar tus casos desde Firebase: {e}")
 
 # --- 12. Flujo Principal de la Aplicación ---
-# --- MODIFICADO: Se añade el "portal" de autenticación ---
 def main():
     """Función principal que dirige al login o a la app."""
     if 'user' not in st.session_state or st.session_state.user is None:
@@ -690,6 +794,4 @@ def main():
         display_main_app()
 
 if __name__ == "__main__":
-
     main()
-
