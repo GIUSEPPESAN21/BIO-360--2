@@ -1,0 +1,56 @@
+{
+  "Dilemas Éticos en Neonatología": {
+    "riesgos": ["Decisiones bajo incertidumbre pronóstica", "Sufrimiento prolongado del neonato", "Conflicto emocional para los padres y el equipo médico"],
+    "beneficios": ["Posibilidad de supervivencia con calidad de vida", "Aplicación de tecnologías médicas avanzadas", "Respeto por la vida desde la concepción"],
+    "alternativas": ["Limitación del Esfuerzo Terapéutico (LET)", "Cuidados paliativos neonatales", "Opinión de un segundo comité de bioética"],
+    "normativas": ["Ley 1098 de 2006 (Código de la Infancia y la Adolescencia, Colombia)", "Convención sobre los Derechos del Niño (ONU)"]
+  },
+  "Limitación del Esfuerzo Terapéutico (Adultos/Pediatría)": {
+    "riesgos": ["Interpretación incorrecta de la voluntad del paciente", "Conflictos familiares sobre la decisión", "Implicaciones legales si no se sigue el protocolo"],
+    "beneficios": ["Evitar la obstinación terapéutica y el sufrimiento innecesario", "Respetar la autonomía y dignidad del paciente", "Uso más justo de los recursos médicos"],
+    "alternativas": ["Continuar con todas las medidas de soporte vital", "Implementar un plan de cuidados paliativos intensivos", "Obtener una segunda opinión médica"],
+    "normativas": ["Resolución 1216 de 2015 (Directrices para la LET en Colombia)", "Ley 1733 de 2014 (Cuidados Paliativos)"]
+  },
+  "Consentimiento Informado": {
+    "riesgos": ["Información insuficiente o demasiado técnica para el paciente", "Coerción sutil por parte del equipo médico o la familia", "Decisiones tomadas sin plena capacidad de comprensión"],
+    "beneficios": ["Empoderamiento del paciente en su propio cuidado", "Protección de la autonomía y la toma de decisiones informada", "Mejora de la relación médico-paciente"],
+    "alternativas": ["Consentimiento por representación (tutor legal)", "Proceso de asentimiento para menores maduros", "Aplazamiento de la decisión si no es urgente para permitir más deliberación"],
+    "normativas": ["Ley 23 de 1981 (Normas sobre Ética Médica, Colombia)", "Declaración de Helsinki (Principios éticos para la investigación médica en seres humanos)"]
+  },
+  "Confidencialidad y Manejo de Datos": {
+    "riesgos": ["Violación de la privacidad del paciente", "Uso indebido de información sensible", "Acceso no autorizado a historias clínicas"],
+    "beneficios": ["Protección de la intimidad y la dignidad del paciente", "Fomento de la confianza en el sistema de salud", "Cumplimiento de las normativas de protección de datos"],
+    "alternativas": ["Anonimización de datos para investigación", "Acceso restringido basado en roles", "Uso de plataformas seguras para el intercambio de información"],
+    "normativas": ["Ley 1581 de 2012 (Protección de Datos Personales, Colombia)", "HIPAA (Health Insurance Portability and Accountability Act, EE.UU.)", "GDPR (Reglamento General de Protección de Datos, UE)"]
+  },
+  "Cuidados Paliativos y Futilidad": {
+    "riesgos": ["Definición subjetiva de 'futilidad'", "Retraso en la transición a cuidados paliativos, prolongando el sufrimiento", "Percepción de 'abandono' por parte de la familia"],
+    "beneficios": ["Enfoque en la calidad de vida y el confort", "Alivio de síntomas físicos y emocionales", "Soporte integral para el paciente y la familia"],
+    "alternativas": ["Tratamiento curativo con objetivos redefinidos", "Ensayo terapéutico por tiempo limitado", "Soporte espiritual y psicológico intensivo"],
+    "normativas": ["Ley 1733 de 2014 (Ley Consuelo Devis Saavedra sobre Cuidados Paliativos, Colombia)"]
+  },
+  "Eutanasia y Muerte Digna": {
+    "riesgos": ["Presión sobre pacientes vulnerables", "Diagnóstico o pronóstico erróneo", "Objeción de conciencia por parte del personal médico"],
+    "beneficios": ["Fin del sufrimiento intolerable", "Ejercicio del derecho a la autonomía sobre la propia vida", "Muerte pacífica y planificada"],
+    "alternativas": ["Sedación paliativa terminal", "Retiro de soporte vital", "Manejo agresivo del dolor y otros síntomas"],
+    "normativas": ["Sentencia C-239 de 1997 y T-970 de 2014 (Corte Constitucional de Colombia)", "Resolución 971 de 2021 (Protocolo para la aplicación de la eutanasia en Colombia)"]
+  },
+  "Asignación de Recursos Escasos": {
+    "riesgos": ["Discriminación por edad, discapacidad o estatus socioeconómico", "Decisiones basadas en criterios no objetivos", "Desmoralización del equipo de salud"],
+    "beneficios": ["Maximización del bien común y el número de vidas salvadas", "Uso eficiente y justo de los recursos disponibles", "Transparencia en los criterios de asignación"],
+    "alternativas": ["Sistema de lotería", "Principio de 'primero en llegar, primero en ser atendido'", "Transferencia de pacientes a otras instituciones con más recursos"],
+    "normativas": ["Ley 100 de 1993 (Sistema de Seguridad Social en Salud, Colombia)", "Principios de justicia distributiva en bioética"]
+  },
+  "Ética en la Genética y Medicina Predictiva": {
+    "riesgos": ["Estigmatización y discriminación genética", "Ansiedad y estrés por resultados predictivos", "Dilemas sobre la comunicación de hallazgos incidentales"],
+    "beneficios": ["Prevención y detección temprana de enfermedades", "Tratamientos personalizados y más efectivos", "Planificación familiar informada"],
+    "alternativas": ["No realizar pruebas genéticas", "Asesoramiento genético exhaustivo antes y después de las pruebas", "Uso de la información solo para fines de investigación anónima"],
+    "normativas": ["Declaración Universal sobre el Genoma Humano y los Derechos Humanos (UNESCO)", "Ley 1905 de 2018 (Pruebas de ADN en procesos de filiación, Colombia)"]
+  },
+  "Conflictos de Interés": {
+    "riesgos": ["Decisiones clínicas influenciadas por ganancias económicas", "Pérdida de objetividad en la investigación", "Erosión de la confianza pública en la profesión médica"],
+    "beneficios": ["Fomento de la innovación a través de la colaboración industria-academia (si se maneja adecuadamente)", "Desarrollo de nuevas tecnologías y tratamientos"],
+    "alternativas": ["Declaración y transparencia total de los conflictos", "Creación de comités de supervisión independientes", "Recusación del profesional en la toma de decisiones específicas"],
+    "normativas": ["Ley 1438 de 2011 (Reforma al Sistema de Salud, Art. 132 sobre conflictos de interés, Colombia)"]
+  }
+}
