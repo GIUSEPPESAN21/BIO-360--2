@@ -561,8 +561,8 @@ def display_main_app():
     st.title("BIOETHICARE 360º 🏥")
     with st.expander("Autores"):
         st.markdown("""
-        - **Joseph Javier Sánchez Acuña**: Ingeniero Industrial, Desarrollador de Aplicaciones Clínicas, Experto en Inteligencia Artificial.
-        - **Anderson Díaz Pérez**: Doctor en Bioética, Doctor en Salud Pública, Magíster en Ciencias Básicas Biomédicas (Énfasis en Inmunología), Especialista en Inteligencia Artificial.
+        - **Anderson Díaz Pérez**: (Creador y titular de los derechos de autor de BioEthicCare360®): Doctor en Bioética, Doctor en Salud Pública, Magíster en Ciencias Básicas Biomédicas (Énfasis en Inmunología), Especialista en Inteligencia Artificial.
+        - **Joseph Javier Sánchez Acuña**: Ingeniero Industrial, Desarrollador de Aplicaciones Clínicas, Experto en Inteligencia Artificial.
         """)
     st.markdown("---")
 
@@ -795,5 +795,6 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
