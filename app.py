@@ -301,12 +301,12 @@ def generar_texto_consentimiento(caso):
     """Genera el texto del consentimiento informado basado en el caso."""
     dilema_info = dilemas_data.get(caso.dilema_etico, {})
     
-    riesgos = "\\n".join([f"- {r}" for r in dilema_info.get("riesgos", ["No especificados"])])
-    beneficios = "\\n".join([f"- {b}" for b in dilema_info.get("beneficios", ["No especificados"])])
-    alternativas = "\\n".join([f"- {a}" for a in dilema_info.get("alternativas", ["No especificadas"])])
-    normativas = "\\n".join([f"- {n}" for n in dilema_info.get("normativas", ["No especificadas"])])
+    riesgos = "\n".join([f"- {r}" for r in dilema_info.get("riesgos", ["No especificados"])])
+    beneficios = "\n".join([f"- {b}" for b in dilema_info.get("beneficios", ["No especificados"])])
+    alternativas = "\n".join([f"- {a}" for a in dilema_info.get("alternativas", ["No especificadas"])])
+    normativas = "\n".join([f"- {n}" for n in dilema_info.get("normativas", ["No especificadas"])])
 
-    texto = f\"\"\"
+    texto = f"""
 CONSENTIMIENTO/ASENTIMIENTO INFORMADO (BIOETHICARE 360)
 
 Fecha: {datetime.now().strftime("%Y-%m-%d")}
@@ -352,7 +352,7 @@ Fecha: _________________________
 Firma del Profesional de la Salud: _________________________
 Nombre: {caso.nombre_analista}
 Fecha: _________________________
-\"\"\"
+"""
     return texto
 
 def crear_consentimiento_pdf(texto, filename):
@@ -366,7 +366,7 @@ def crear_consentimiento_pdf(texto, filename):
         h2 = ParagraphStyle(name='H2', fontSize=11, fontName='Helvetica-Bold', spaceBefore=10, spaceAfter=4, textColor=colors.darkblue)
         body = ParagraphStyle(name='Body', fontSize=10, fontName='Helvetica', leading=14, alignment=TA_LEFT, spaceAfter=8)
         
-        lines = texto.split('\\n')
+        lines = texto.split('\n')
         for line in lines:
             if line.isupper() and not line.startswith("-"):
                 if "CONSENTIMIENTO" in line:
@@ -376,7 +376,7 @@ def crear_consentimiento_pdf(texto, filename):
                     story.append(Paragraph(line, h2))
                     story.append(HRFlowable(width="100%", thickness=1, color=colors.black))
             else:
-                story.append(Paragraph(line.replace('\\n', '<br/>'), body))
+                story.append(Paragraph(line.replace('\n', '<br/>'), body))
 
         doc.build(story)
         logger.info(f"PDF de consentimiento generado: {filename}")
