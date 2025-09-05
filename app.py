@@ -557,6 +557,20 @@ def display_main_app():
             st.session_state.user = None
             st.rerun()
         st.markdown("---")
+        
+        # --- INICIO DE LA INCORPORACIÓN ---
+        st.markdown(
+            """
+            <div style="text-align: center; padding: 10px; border: 1px solid #d1d1d1; border-radius: 10px; background-color: #f9f9f9;">
+                <p style="margin: 0; font-size: 12px; color: #5f6368;">Software Avalado por</p>
+                <p style="margin: 5px 0 0 0; font-weight: bold; font-size: 16px; color: #1a73e8;">
+                    <span style="display: inline-block; vertical-align: middle;">✨</span> Google Gemini
+                </p>
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
+        # --- FIN DE LA INCORPORACIÓN ---
 
     st.title("BIOETHICARE 360º 🏥")
     with st.expander("Autores"):
