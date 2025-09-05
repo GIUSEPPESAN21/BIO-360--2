@@ -544,6 +544,20 @@ def display_login_form():
                 else:
                     st.warning("Por favor, introduce un email y contraseña válidos para registrarte.")
 
+    # --- INICIO DE LA INCORPORACIÓN ---
+    st.markdown(
+        """
+        <div style="text-align: center; padding: 10px; border: 1px solid #d1d1d1; border-radius: 10px; background-color: #f9f9f9; margin-top: 30px;">
+            <p style="margin: 0; font-size: 12px; color: #5f6368;">Software Avalado por</p>
+            <p style="margin: 5px 0 0 0; font-weight: bold; font-size: 16px; color: #1a73e8;">
+                <span style="display: inline-block; vertical-align: middle;">✨</span> Google Gemini
+            </p>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+    # --- FIN DE LA INCORPORACIÓN ---
+
 def display_main_app():
     """Muestra la aplicación principal una vez que el usuario está autenticado."""
     
@@ -799,6 +813,21 @@ def display_main_app():
                 log_error("Error consultando casos desde Firebase", e)
                 st.error(f"Ocurrió un error al consultar tus casos desde Firebase: {e}")
 
+    # --- INICIO DE LA INCORPORACIÓN ---
+    st.markdown("---")
+    st.markdown(
+        """
+        <div style="text-align: center; padding: 10px; border: 1px solid #d1d1d1; border-radius: 10px; background-color: #f9f9f9;">
+            <p style="margin: 0; font-size: 12px; color: #5f6368;">Software Avalado por</p>
+            <p style="margin: 5px 0 0 0; font-weight: bold; font-size: 16px; color: #1a73e8;">
+                <span style="display: inline-block; vertical-align: middle;">✨</span> Google Gemini
+            </p>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+    # --- FIN DE LA INCORPORACIÓN ---
+
 # --- 12. Flujo Principal de la Aplicación ---
 def main():
     """Función principal que dirige al login o a la app."""
@@ -809,3 +838,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
