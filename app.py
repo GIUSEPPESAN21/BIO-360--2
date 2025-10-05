@@ -373,17 +373,16 @@ def crear_consentimiento_pdf(texto, filename):
         raise e
 
 # --- 10. APIs de IA ---
-# --- MEJORA: Se reemplaza la llamada manual por la librería oficial de Google ---
 def llamar_gemini(prompt, api_key):
     try:
         genai.configure(api_key=api_key)
-        model = genai.GenerativeModel('gemini-1.5-flash')
+        # --- CORRECCIÓN: Se cambia al modelo 'gemini-pro' que es más estándar ---
+        model = genai.GenerativeModel('gemini-pro')
         response = model.generate_content(prompt)
         return response.text
     except Exception as e:
         log_error("Error inesperado en llamada a Gemini con la librería oficial", e)
         st.error(f"Ocurrió un error con la librería de Gemini: {e}")
-        # Devuelve un mensaje más específico si es posible
         if "API key not valid" in str(e):
             return "Error de API con Gemini: La clave no es válida. Por favor, verifícala."
         return f"Error en la librería de Gemini: {e}"
