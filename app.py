@@ -1,4 +1,4 @@
-# BIOETHICARE 30º
+# BIOETHICARE 360º
 # Autores: Anderson Díaz Pérez & Joseph Javier Sánchez Acuña
 
 # --- 1. Importaciones ---
@@ -39,7 +39,6 @@ logger = logging.getLogger(__name__)
 # --- 3. Configuración Inicial y Estado de la Sesión ---
 st.set_page_config(layout="wide", page_title="BIOETHICARE 360")
 
-# --- MEJORA: Se añade 'ai_provider' al estado de la sesión ---
 session_defaults = {
     'reporte': None,
     'temp_dir': None,
@@ -371,6 +370,7 @@ def crear_consentimiento_pdf(texto, filename):
         raise e
 
 # --- 10. APIs de IA ---
+# --- MEJORA: Manejo de errores más detallado ---
 def llamar_gemini(prompt, api_key):
     api_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key={api_key}"
     headers = {"Content-Type": "application/json"}
@@ -383,22 +383,23 @@ def llamar_gemini(prompt, api_key):
             return result['candidates'][0]['content']['parts'][0]['text']
         else:
             log_error(f"Respuesta inesperada de Gemini: {result}")
+            st.error("Respuesta inválida de la API de Gemini.")
             return "Respuesta inválida de la API de Gemini."
     except requests.exceptions.HTTPError as http_err:
         error_details = "No se pudieron obtener detalles del error."
         try:
-            error_details = http_err.response.json()
+            error_details_json = http_err.response.json()
+            error_details = error_details_json.get("error", {}).get("message", json.dumps(error_details_json))
         except json.JSONDecodeError:
             error_details = http_err.text
         log_error(f"Error HTTP con Gemini: {http_err}", error_details)
-        st.error(f"Error de API con Gemini. Revisa la consola de Google Cloud.")
+        st.error(f"Error de API con Gemini: {error_details}. Revisa la consola de Google Cloud (API y Facturación).")
         return "Error de API con Gemini."
     except Exception as e:
         log_error("Error inesperado en llamada a Gemini", e)
         st.error(f"Ocurrió un error inesperado al contactar a Gemini: {e}")
         return "Error inesperado."
 
-# --- MEJORA: Función para llamar a OpenAI ---
 def llamar_openai(prompt, api_key):
     try:
         client = OpenAI(api_key=api_key)
@@ -556,7 +557,6 @@ def display_main_app():
             st.session_state.user = None
             st.rerun()
         st.markdown("---")
-        # --- MEJORA: Selector de Proveedor de IA ---
         st.markdown("### Configuración de IA")
         st.session_state.ai_provider = st.selectbox("Seleccionar Proveedor de IA", ("Google Gemini", "OpenAI"), key="ai_provider_selector")
         st.markdown("---")
@@ -567,7 +567,6 @@ def display_main_app():
         st.markdown("""- **Anderson Díaz Pérez**: (Creador y titular de los derechos de autor de BioEthicCare360®): Doctor en Bioética, Doctor en Salud Pública, Magíster en Ciencias Básicas Biomédicas (Énfasis en Inmunología), Especialista en Inteligencia Artificial.\n- **Joseph Javier Sánchez Acuña**: Ingeniero Industrial, Desarrollador de Aplicaciones Clínicas, Experto en Inteligencia Artificial.""")
     st.markdown("---")
 
-    # --- MEJORA: Carga segura de AMBAS claves y verificación dinámica ---
     GEMINI_API_KEY = st.secrets.get("GEMINI_API_KEY")
     OPENAI_API_KEY = st.secrets.get("OPENAI_API_KEY")
     api_key_disponible = (st.session_state.ai_provider == "Google Gemini" and GEMINI_API_KEY) or \
@@ -582,7 +581,6 @@ def display_main_app():
         st.header("1. Asistente de Análisis Previo (Opcional)", anchor=False)
         st.text_area("Pega aquí la historia clínica del paciente...", key="clinical_history_input", height=250)
         
-        # --- MEJORA: Botón de análisis dinámico ---
         if st.button(f"🤖 Analizar Historia Clínica con {st.session_state.ai_provider}", use_container_width=True):
             if st.session_state.clinical_history_input and api_key_disponible:
                 with st.spinner(f"Analizando con {st.session_state.ai_provider}..."):
@@ -590,7 +588,7 @@ def display_main_app():
                     respuesta_ia = ""
                     if st.session_state.ai_provider == "Google Gemini":
                         respuesta_ia = llamar_gemini(prompt, GEMINI_API_KEY)
-                    else: # OpenAI
+                    else:
                         respuesta_ia = llamar_openai(prompt, OPENAI_API_KEY)
                     st.session_state.ai_clinical_analysis_output = respuesta_ia
             else:
@@ -612,12 +610,10 @@ def display_main_app():
                 analista_email = st.session_state.user.get('email', 'Analista Desconocido') if st.session_state.user else 'Analista Desconocido'
                 nombre_analista = st.text_input("Nombre del Analista", value=analista_email, disabled=True)
                 condicion = st.selectbox("Condición", ["Estable", "Crítico", "Terminal", "Neonato"])
-
             dilema_etico = st.selectbox("Dilema Ético Principal", options=dilemas_opciones)
             descripcion_caso = st.text_area("Descripción Detallada del Caso", height=150)
             antecedentes_culturales = st.text_area("Contexto Sociocultural y Familiar", height=100)
             puntos_clave_ia = st.text_area("Puntos Clave para Deliberación IA (Opcional)", height=100)
-            
             st.header("3. Ponderación Multiperspectiva (0-5)", anchor=False)
             with st.expander("Perspectiva del Equipo Médico"):
                 c = st.columns(4)
@@ -637,7 +633,6 @@ def display_main_app():
                 nivel_beneficencia_comite = c[1].slider("Beneficencia",0,5,3,key="bc")
                 nivel_no_maleficencia_comite = c[2].slider("No Maleficencia",0,5,3,key="nmc")
                 nivel_justicia_comite = c[3].slider("Justicia",0,5,3,key="jc")
-            
             generar_consentimiento = st.checkbox("📄 Generar Consentimiento Informado", value=False)
             submitted = st.form_submit_button("Analizar Caso y Generar Dashboard", use_container_width=True)
 
@@ -677,7 +672,6 @@ def display_main_app():
             st.markdown("---")
             display_case_details(st.session_state.reporte, key_prefix="active")
             a1, a2, a3 = st.columns([2, 1, 1])
-            # --- MEJORA: Botón de análisis deliberativo dinámico ---
             if a1.button(f"🤖 Generar Análisis Deliberativo con {st.session_state.ai_provider}", use_container_width=True, key="gen_analysis_button"):
                 if api_key_disponible:
                     with st.spinner(f"Contactando a {st.session_state.ai_provider}..."):
@@ -685,7 +679,7 @@ def display_main_app():
                         analysis = ""
                         if st.session_state.ai_provider == "Google Gemini":
                             analysis = llamar_gemini(prompt, GEMINI_API_KEY)
-                        else: # OpenAI
+                        else:
                             analysis = llamar_openai(prompt, OPENAI_API_KEY)
                         st.session_state.reporte["Análisis Deliberativo (IA)"] = analysis
                         if db and st.session_state.case_id:
@@ -712,7 +706,6 @@ def display_main_app():
                     log_error("Error en la sección de descarga de consentimiento", e)
 
     with tab_chatbot:
-        # --- MEJORA: Título dinámico del chatbot ---
         st.header(f"🤖 Asistente de Bioética con {st.session_state.ai_provider}", anchor=False)
         if not st.session_state.case_id:
             st.info("Primero analiza un caso para poder usar el chatbot contextual.")
@@ -733,10 +726,9 @@ def display_main_app():
                         contexto = json.dumps(st.session_state.reporte, indent=2, ensure_ascii=False)
                         full_prompt = f"Eres un experto en bioética. Caso: {contexto}. Pregunta: '{prompt}'. Responde concisamente."
                         respuesta = ""
-                        # --- MEJORA: Lógica de chatbot dinámica ---
                         if st.session_state.ai_provider == "Google Gemini":
                             respuesta = llamar_gemini(full_prompt, GEMINI_API_KEY)
-                        else: # OpenAI
+                        else:
                             respuesta = llamar_openai(full_prompt, OPENAI_API_KEY)
                         st.session_state.chat_history.append({"role": "assistant", "content": respuesta})
                     if db and st.session_state.case_id:
@@ -787,3 +779,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
