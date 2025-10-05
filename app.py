@@ -178,6 +178,7 @@ firebase_auth_app = initialize_firebase_auth()
 @st.cache_data
 def cargar_dilemas():
     try:
+        # Asumiendo que 'dilemas.json' está en el mismo directorio que app.py
         with open('dilemas.json', 'r', encoding='utf-8') as f:
             return json.load(f)
     except FileNotFoundError:
@@ -373,11 +374,10 @@ def crear_consentimiento_pdf(texto, filename):
         raise e
 
 # --- 10. APIs de IA ---
-# ========= FUNCIÓN CORREGIDA =========
 def llamar_gemini(prompt, api_key):
     """
     Llama a la API de Gemini utilizando la librería oficial de Google.
-    Esta versión es más robusta y utiliza el modelo 'gemini-pro'.
+    Esta versión es más robusta y utiliza el modelo 'gemini-1.0-pro'.
     """
     try:
         genai.configure(api_key=api_key)
@@ -396,9 +396,9 @@ def llamar_gemini(prompt, api_key):
             {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_MEDIUM_AND_ABOVE"},
         ]
 
-        # Usamos 'gemini-pro' que es el modelo más estable y compatible
+        # ========= LA CORRECCIÓN DEFINITIVA ESTÁ AQUÍ =========
         model = genai.GenerativeModel(
-            model_name="gemini-pro",
+            model_name="gemini-1.0-pro", # Usamos el nombre completo y versionado del modelo
             generation_config=generation_config,
             safety_settings=safety_settings
         )
