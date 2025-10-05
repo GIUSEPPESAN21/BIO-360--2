@@ -178,7 +178,6 @@ firebase_auth_app = initialize_firebase_auth()
 @st.cache_data
 def cargar_dilemas():
     try:
-        # Asumiendo que 'dilemas.json' está en el mismo directorio que app.py
         with open('dilemas.json', 'r', encoding='utf-8') as f:
             return json.load(f)
     except FileNotFoundError:
@@ -377,7 +376,7 @@ def crear_consentimiento_pdf(texto, filename):
 def llamar_gemini(prompt, api_key):
     """
     Llama a la API de Gemini utilizando la librería oficial de Google.
-    Esta versión es más robusta y utiliza el modelo 'gemini-1.0-pro'.
+    Esta versión utiliza el modelo 'gemini-1.5-pro-latest' y es más robusta.
     """
     try:
         genai.configure(api_key=api_key)
@@ -398,7 +397,7 @@ def llamar_gemini(prompt, api_key):
 
         # ========= LA CORRECCIÓN DEFINITIVA ESTÁ AQUÍ =========
         model = genai.GenerativeModel(
-            model_name="gemini-1.0-pro", # Usamos el nombre completo y versionado del modelo
+            model_name="gemini-1.5-pro-latest", # Usamos el nombre del modelo más reciente
             generation_config=generation_config,
             safety_settings=safety_settings
         )
@@ -408,15 +407,15 @@ def llamar_gemini(prompt, api_key):
         # Manejo robusto de la respuesta para evitar errores si es bloqueada
         if response.parts:
             return "".join(part.text for part in response.parts)
-        elif response.prompt_feedback:
+        elif hasattr(response, 'prompt_feedback') and response.prompt_feedback:
             block_reason = response.prompt_feedback.block_reason
             error_message = f"La solicitud a Gemini fue bloqueada. Razón: {block_reason}"
             log_error(error_message)
             st.warning(error_message)
             return f"Error: La solicitud fue bloqueada por políticas de seguridad ({block_reason})."
         else:
-             log_error("Respuesta inesperada de Gemini.")
-             return "No se pudo obtener una respuesta válida de Gemini."
+             # A veces la respuesta puede no tener 'parts' si está vacía
+             return response.text
             
     except Exception as e:
         error_message = f"Error al contactar a Gemini con la librería oficial: {str(e)}"
