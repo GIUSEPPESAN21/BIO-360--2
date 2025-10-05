@@ -1,5 +1,6 @@
-# BIOETHICARE 360º
+# BIOETHICARE 360º - VERSIÓN 2.0 MEJORADA Y FUSIONADA
 # Autores: Anderson Díaz Pérez & Joseph Javier Sánchez Acuña
+# Versión: 2.1 - Funcionalidad completa del proyecto original con el motor de IA optimizado.
 
 # --- 1. Importaciones ---
 import os
@@ -19,7 +20,7 @@ import logging
 # Importación para OpenAI
 from openai import OpenAI
 
-# Importación de la librería oficial de Google
+# Importación de la librería oficial de Google (CORREGIDA Y OPTIMIZADA)
 import google.generativeai as genai
 
 # Importaciones para PDF
@@ -40,8 +41,14 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 logger = logging.getLogger(__name__)
 
 # --- 3. Configuración Inicial y Estado de la Sesión ---
-st.set_page_config(layout="wide", page_title="BIOETHICARE 360")
+st.set_page_config(
+    layout="wide", 
+    page_title="BIOETHICARE 360", 
+    page_icon="🏥",
+    initial_sidebar_state="expanded"
+)
 
+# Se unifican los valores por defecto de ambas versiones
 session_defaults = {
     'reporte': None,
     'temp_dir': None,
@@ -54,8 +61,10 @@ session_defaults = {
     'key_counter': 0,
     'user': None,
     'consentimiento_texto': None,
-    'ai_provider': 'Google Gemini' # Proveedor de IA por defecto
+    'ai_provider': 'Google Gemini',
+    'selected_model': 'gemini-2.0-flash-exp' # Modelo por defecto de la versión optimizada
 }
+
 for key, default_value in session_defaults.items():
     if key not in st.session_state:
         st.session_state[key] = default_value
@@ -74,7 +83,98 @@ def log_error(error_msg, exception=None):
     logger.error(f"BIOETHICARE ERROR: {error_msg}")
     if exception: logger.error(f"Exception details: {str(exception)}")
 
-# --- 5. MÓDULO DE ANÁLISIS ÉTICO ---
+# --- 5. APIs de IA (SECCIÓN MEJORADA Y OPTIMIZADA) ---
+
+def llamar_gemini(prompt, api_key):
+    """
+    FUNCIÓN CORREGIDA Y OPTIMIZADA PARA GEMINI (DE LA VERSIÓN 2.0)
+    - Usa modelos actuales (Gemini 2.0 Flash Experimental)
+    - Fallback automático entre modelos si uno falla.
+    - Configuración optimizada para análisis bioético.
+    - Manejo robusto de errores para evitar crashes.
+    """
+    try:
+        genai.configure(api_key=api_key)
+        
+        generation_config = {
+            "temperature": 0.3,
+            "top_p": 0.95,
+            "top_k": 40,
+            "max_output_tokens": 4096,
+        }
+
+        safety_settings = [
+            {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_ONLY_HIGH"},
+            {"category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_ONLY_HIGH"},
+            {"category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "BLOCK_ONLY_HIGH"},
+            {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_ONLY_HIGH"},
+        ]
+
+        # Lista de modelos actualizada para el fallback automático
+        modelos_disponibles = [
+            "gemini-2.0-flash-exp",
+            "gemini-1.5-pro-001",
+            "gemini-1.5-flash-001",
+            "gemini-1.5-flash",
+        ]
+        
+        for modelo in modelos_disponibles:
+            try:
+                model = genai.GenerativeModel(
+                    model_name=modelo,
+                    generation_config=generation_config,
+                    safety_settings=safety_settings
+                )
+                
+                response = model.generate_content(prompt)
+                
+                if response.parts:
+                    texto_respuesta = "".join(part.text for part in response.parts)
+                    if texto_respuesta.strip():
+                        logger.info(f"Respuesta exitosa usando modelo: {modelo}")
+                        st.session_state.selected_model = modelo # Actualiza el modelo en uso
+                        return texto_respuesta
+                
+                if hasattr(response, 'prompt_feedback') and response.prompt_feedback:
+                    logger.warning(f"Modelo {modelo} bloqueado: {response.prompt_feedback.block_reason}. Probando siguiente modelo...")
+                    continue
+                    
+            except Exception as modelo_error:
+                logger.warning(f"Error con modelo {modelo}: {str(modelo_error)}. Probando siguiente modelo...")
+                continue
+        
+        error_message = "Todos los modelos de Gemini no están disponibles o fueron bloqueados."
+        log_error(error_message)
+        st.error(error_message)
+        return "Error: No se pudo obtener respuesta de ningún modelo de Gemini disponible."
+            
+    except Exception as e:
+        error_message = f"Error crítico al contactar a Gemini: {str(e)}"
+        log_error(error_message, e)
+        st.error(error_message)
+        return "Error en la comunicación con la API de Gemini."
+
+def llamar_openai(prompt, api_key):
+    """Función optimizada para OpenAI con mejor manejo de errores"""
+    try:
+        client = OpenAI(api_key=api_key)
+        response = client.chat.completions.create(
+            model="gpt-4o",
+            messages=[
+                {"role": "system", "content": "Eres un experto en bioética analizando un caso clínico complejo. Proporciona análisis detallados, precisos y basados en evidencia."},
+                {"role": "user", "content": prompt}
+            ],
+            temperature=0.3,
+            max_tokens=4096
+        )
+        return response.choices[0].message.content
+    except Exception as e:
+        log_error("Error inesperado en llamada a OpenAI", e)
+        st.error(f"Ocurrió un error inesperado al contactar a OpenAI: {e}")
+        return "Error al contactar a OpenAI."
+
+
+# --- 6. MÓDULO DE ANÁLISIS ÉTICO (Funcionalidad del proyecto original) ---
 def verificar_sesgo_etico(caso):
     advertencias = []
     recomendaciones = []
@@ -139,7 +239,7 @@ def generar_grafico_equilibrio_etico(caso):
         log_error("Error generando gráfico de equilibrio ético", e)
         return None
 
-# --- 6. Conexión con Firebase ---
+# --- 7. Conexión con Firebase (Funcionalidad del proyecto original) ---
 @st.cache_resource
 def initialize_firebase_admin():
     try:
@@ -174,7 +274,7 @@ def initialize_firebase_auth():
 db = initialize_firebase_admin()
 firebase_auth_app = initialize_firebase_auth()
 
-# --- 7. Base de Conocimiento ---
+# --- 8. Base de Conocimiento (Funcionalidad del proyecto original) ---
 @st.cache_data
 def cargar_dilemas():
     try:
@@ -194,7 +294,7 @@ dilemas_data = cargar_dilemas()
 dilemas_opciones = list(dilemas_data.keys())
 
 
-# --- 8. Clases de Modelo ---
+# --- 9. Clases de Modelo (Funcionalidad del proyecto original) ---
 class CasoBioetico:
     def __init__(self, **kwargs):
         self.nombre_paciente = safe_str(kwargs.get('nombre_paciente'), 'N/A')
@@ -222,7 +322,7 @@ class CasoBioetico:
             "justicia": safe_int(kwargs.get(f'nivel_justicia_{prefix}')),
         }
 
-# --- 9. Funciones de Generación de Reportes ---
+# --- 10. Funciones de Generación de Reportes (Funcionalidad del proyecto original) ---
 def generar_reporte_completo(caso, dilema_sugerido, chat_history, chart_jsons, ethical_analysis):
     resumen_paciente = f"Paciente {caso.nombre_paciente}, {caso.edad} años, género {caso.genero}, condición {caso.condicion}."
     if caso.semanas_gestacion > 0:
@@ -372,94 +472,8 @@ def crear_consentimiento_pdf(texto, filename):
         log_error(f"Error generando PDF de consentimiento {filename}", e)
         raise e
 
-# --- 10. APIs de IA ---
-def llamar_gemini(prompt, api_key):
-    """
-    Llama a la API de Gemini utilizando la librería oficial de Google.
-    Versión optimizada con modelos actuales y fallback automático.
-    """
-    try:
-        genai.configure(api_key=api_key)
-        
-        # Configuración optimizada para análisis bioético
-        generation_config = {
-            "temperature": 0.3,  # Reducido para respuestas más consistentes
-            "top_p": 0.95,       # Optimizado para análisis técnico
-            "top_k": 40,         # Mejor para contenido especializado
-            "max_output_tokens": 4096, # Aumentado para análisis más detallados
-        }
 
-        # Configuración de seguridad menos restrictiva para contenido médico
-        safety_settings = [
-            {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_ONLY_HIGH"},
-            {"category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_ONLY_HIGH"},
-            {"category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "BLOCK_ONLY_HIGH"},
-            {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_ONLY_HIGH"},
-        ]
-
-        # Lista de modelos en orden de preferencia (del más potente al más básico)
-        modelos_disponibles = [
-            "gemini-1.5-pro-latest",   # Modelo pro más reciente y potente
-            "gemini-1.5-flash-latest", # Modelo flash más reciente y rápido
-        ]
-        
-        # Intentar con cada modelo hasta encontrar uno que funcione
-        for modelo in modelos_disponibles:
-            try:
-                model = genai.GenerativeModel(
-                    model_name=modelo,
-                    generation_config=generation_config,
-                    safety_settings=safety_settings
-                )
-                
-                response = model.generate_content(prompt)
-                
-                # Manejo robusto de la respuesta
-                if response.parts:
-                    texto_respuesta = "".join(part.text for part in response.parts)
-                    if texto_respuesta.strip():  # Verificar que no esté vacía
-                        logger.info(f"Respuesta exitosa usando modelo: {modelo}")
-                        return texto_respuesta
-                
-                # Si la respuesta está bloqueada, intentar con el siguiente modelo
-                if hasattr(response, 'prompt_feedback') and response.prompt_feedback:
-                    block_reason = response.prompt_feedback.block_reason
-                    logger.warning(f"Modelo {modelo} bloqueado: {block_reason}. Probando siguiente modelo...")
-                    continue
-                    
-            except Exception as modelo_error:
-                logger.warning(f"Error con modelo {modelo}: {str(modelo_error)}. Probando siguiente modelo...")
-                continue
-        
-        # Si ningún modelo funcionó
-        error_message = "Todos los modelos de Gemini no están disponibles o fueron bloqueados."
-        log_error(error_message)
-        st.error(error_message)
-        return "Error: No se pudo obtener respuesta de ningún modelo de Gemini disponible."
-            
-    except Exception as e:
-        error_message = f"Error crítico al contactar a Gemini: {str(e)}"
-        log_error(error_message)
-        st.error(error_message)
-        return "Error en la comunicación con la API de Gemini."
-
-def llamar_openai(prompt, api_key):
-    try:
-        client = OpenAI(api_key=api_key)
-        response = client.chat.completions.create(
-            model="gpt-4o",
-            messages=[
-                {"role": "system", "content": "Eres un experto en bioética analizando un caso clínico complejo."},
-                {"role": "user", "content": prompt}
-            ]
-        )
-        return response.choices[0].message.content
-    except Exception as e:
-        log_error("Error inesperado en llamada a OpenAI", e)
-        st.error(f"Ocurrió un error inesperado al contactar a OpenAI: {e}")
-        return "Error al contactar a OpenAI."
-
-# --- 11. Funciones de UI ---
+# --- 11. Funciones de UI (Funcionalidad del proyecto original con mejoras de la V2) ---
 def display_case_details(report_data, key_prefix):
     try:
         case_id = safe_str(report_data.get('ID del Caso', 'caso_desconocido'))
@@ -588,25 +602,43 @@ def display_login_form():
                         log_error("Fallo en registro de usuario", e)
                 else:
                     st.warning("Por favor, introduce un email y contraseña válidos para registrarte.")
-    st.markdown("""<div style="text-align: center; padding: 10px; border: 1px solid #d1d1d1; border-radius: 10px; background-color: #f9f9f9; margin-top: 30px;"><p style="margin: 0; font-size: 12px; color: #5f6368;">Software Avalado por</p><p style="margin: 5px 0 0 0; font-weight: bold; font-size: 16px; color: #1a73e8;"><span style="display: inline-block; vertical-align: middle;">✨</span> Google Gemini</p></div>""", unsafe_allow_html=True)
+    st.markdown("---")
+    st.image("https://storage.googleapis.com/production-assets/assets/img/logo-gemini-1024.png", width=150)
+
 
 def display_main_app():
+    # --- Interfaz del Sidebar Mejorada ---
     with st.sidebar:
-        st.markdown("### Usuario Conectado")
+        st.markdown("### 🤖 Estado de la IA")
+        if st.session_state.get('selected_model'):
+            st.info(f"**Modelo actual:**\n{st.session_state.selected_model}")
+        else:
+            st.info("Iniciando motor de IA...")
+
+        st.markdown("### 👤 Usuario Conectado")
         if st.session_state.user and isinstance(st.session_state.user, dict):
              user_email = st.session_state.user.get('email', 'No disponible')
              st.write(f"_{user_email}_")
         if st.button("Cerrar Sesión", use_container_width=True, type="secondary"):
             st.session_state.user = None
             st.rerun()
+            
         st.markdown("---")
-        st.markdown("### Configuración de IA")
-        st.session_state.ai_provider = st.selectbox("Seleccionar Proveedor de IA", ("Google Gemini", "OpenAI"), key="ai_provider_selector")
+        st.markdown("### ⚙️ Configuración de IA")
+        st.session_state.ai_provider = st.selectbox(
+            "Seleccionar Proveedor de IA", 
+            ("Google Gemini", "OpenAI"), 
+            key="ai_provider_selector"
+        )
         st.markdown("---")
-        st.markdown("""<div style="text-align: center; padding: 10px; border: 1px solid #d1d1d1; border-radius: 10px; background-color: #f9f9f9;"><p style="margin: 0; font-size: 12px; color: #5f6368;">Software Avalado por</p><p style="margin: 5px 0 0 0; font-weight: bold; font-size: 16px; color: #1a73e8;"><span style="display: inline-block; vertical-align: middle;">✨</span> Google Gemini</p></div>""", unsafe_allow_html=True)
+        st.image("https://storage.googleapis.com/production-assets/assets/img/logo-gemini-1024.png", width=100)
+
 
     st.title("BIOETHICARE 360º 🏥")
-    with st.expander("Autores"):
+    st.info("""
+    **🎉 Versión 2.1 Fusionada y Optimizada** - Ahora con la funcionalidad completa del proyecto original y el motor de IA mejorado con Gemini 2.0 y fallback automático.
+    """)
+    with st.expander("Autores y Reconocimientos"):
         st.markdown("""- **Anderson Díaz Pérez**: (Creador y titular de los derechos de autor de BioEthicCare360®): Doctor en Bioética, Doctor en Salud Pública, Magíster en Ciencias Básicas Biomédicas (Énfasis en Inmunología), Especialista en Inteligencia Artificial.\n- **Joseph Javier Sánchez Acuña**: Ingeniero Industrial, Desarrollador de Aplicaciones Clínicas, Experto en Inteligencia Artificial.""")
     st.markdown("---")
 
@@ -617,8 +649,17 @@ def display_main_app():
 
     if not api_key_disponible:
         st.warning(f"⚠️ Clave de API para {st.session_state.ai_provider} no encontrada. Funciones de IA deshabilitadas.", icon="⚠️")
+    else:
+        st.success(f"✅ {st.session_state.ai_provider} configurado correctamente.")
+
     
-    tab_analisis, tab_chatbot, tab_consultar = st.tabs(["**Análisis de Caso**", "**Asistente de Bioética (Chatbot)**", "**Consultar Casos Anteriores**"])
+    tab_analisis, tab_chatbot, tab_consultar, tab_info = st.tabs([
+        "**Análisis de Caso**", 
+        "**Asistente de Bioética (Chatbot)**", 
+        "**Consultar Casos Anteriores**",
+        "**Información del Sistema**"
+    ])
+
 
     with tab_analisis:
         st.header("1. Asistente de Análisis Previo (Opcional)", anchor=False)
@@ -770,9 +811,9 @@ def display_main_app():
                         full_prompt = f"Eres un experto en bioética. Caso: {contexto}. Pregunta: '{prompt}'. Responde concisamente."
                         respuesta = ""
                         if st.session_state.ai_provider == "Google Gemini":
-                            respuesta = llamar_gemini(prompt, GEMINI_API_KEY)
+                            respuesta = llamar_gemini(full_prompt, GEMINI_API_KEY)
                         else:
-                            respuesta = llamar_openai(prompt, OPENAI_API_KEY)
+                            respuesta = llamar_openai(full_prompt, OPENAI_API_KEY)
                         st.session_state.chat_history.append({"role": "assistant", "content": respuesta})
                     if db and st.session_state.case_id:
                         try:
@@ -809,9 +850,27 @@ def display_main_app():
             except Exception as e:
                 log_error("Error consultando casos desde Firebase", e)
                 st.error(f"Ocurrió un error al consultar tus casos desde Firebase: {e}")
-
-    st.markdown("---")
-    st.markdown("""<div style="text-align: center; padding: 10px; border: 1px solid #d1d1d1; border-radius: 10px; background-color: #f9f9f9;"><p style="margin: 0; font-size: 12px; color: #5f6368;">Software Avalado por</p><p style="margin: 5px 0 0 0; font-weight: bold; font-size: 16px; color: #1a73e8;"><span style="display: inline-block; vertical-align: middle;">✨</span> Google Gemini</p></div>""", unsafe_allow_html=True)
+    
+    with tab_info:
+        st.header("ℹ️ Información del Sistema")
+        col1, col2 = st.columns(2)
+        with col1:
+            st.markdown("### 🚀 Mejoras en esta Versión")
+            st.markdown("""
+            - ✅ **Motor de IA de Gemini 2.0** con fallback automático.
+            - ✅ **Configuración optimizada** para análisis bioético.
+            - ✅ **Manejo robusto de errores** y logging detallado.
+            - ✅ **Integración completa** con autenticación y base de datos Firebase.
+            - ✅ **Generación avanzada de reportes** en PDF y visualizaciones.
+            """)
+        with col2:
+            st.markdown("### 🔧 Modelos de IA Disponibles (Fallback)")
+            st.markdown("""
+            La aplicación probará automáticamente en este orden:
+            1. **gemini-2.0-flash-exp** ⭐ (Recomendado)
+            2. **gemini-1.5-pro-001** 3. **gemini-1.5-flash-001**
+            4. **gemini-1.5-flash**
+            """)
 
 # --- 12. Flujo Principal de la Aplicación ---
 def main():
@@ -822,4 +881,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
