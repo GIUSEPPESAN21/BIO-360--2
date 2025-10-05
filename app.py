@@ -19,7 +19,7 @@ import logging
 # Importación para OpenAI
 from openai import OpenAI
 
-# Importación de la librería oficial de Google (se mantiene por si se usa en el futuro)
+# Importación de la librería oficial de Google
 import google.generativeai as genai
 
 # Importaciones para PDF
@@ -52,7 +52,7 @@ session_defaults = {
     'ai_clinical_analysis_output': "",
     'clinical_history_input': "",
     'key_counter': 0,
-    'user': None, 
+    'user': None,
     'consentimiento_texto': None,
     'ai_provider': 'Google Gemini' # Proveedor de IA por defecto
 }
@@ -306,7 +306,7 @@ def crear_reporte_pdf_completo(data, filename):
 def generar_texto_consentimiento(caso):
     dilema_info = dilemas_data.get(caso.dilema_etico, {})
     riesgos = "\n".join([f"- {r}" for r in dilema_info.get("riesgos", ["No especificados"])])
-    beneficios = "\n".join([f"- {b}" for b in dilema_info.get("beneficios", ["No especificados"])])
+    beneficios = "\n".join([f"- {b}" for r in dilema_info.get("beneficios", ["No especificados"])])
     alternativas = "\n".join([f"- {a}" for a in dilema_info.get("alternativas", ["No especificadas"])])
     normativas = "\n".join([f"- {n}" for n in dilema_info.get("normativas", ["No especificadas"])])
     texto = f"""
@@ -373,48 +373,41 @@ def crear_consentimiento_pdf(texto, filename):
         raise e
 
 # --- 10. APIs de IA ---
-# --- SOLUCIÓN DEFINITIVA: Se revierte a `requests` para forzar la API a la versión `v1` ---
 def llamar_gemini(prompt, api_key):
-    # Se usa la versión `v1` de la API, que es la estable, en lugar de `v1beta`.
-    api_url = f"https://generativelanguage.googleapis.com/v1/models/gemini-pro:generateContent?key={api_key}"
-    
-    headers = {"Content-Type": "application/json"}
-    # El payload para la v1 es ligeramente diferente, se ajusta aquí.
-    payload = {"contents": [{"parts": [{"text": prompt}]}]}
-    
+    """
+    Llama a la API de Gemini utilizando la librería oficial de Google,
+    apuntando al modelo más reciente para asegurar compatibilidad.
+    """
     try:
-        response = requests.post(api_url, headers=headers, json=payload, timeout=90)
-        # Lanza una excepción si la respuesta es un error (4xx o 5xx)
-        response.raise_for_status()
-        result = response.json()
+        # 1. Configura la API key de forma segura
+        genai.configure(api_key=api_key)
         
-        # Validación robusta de la respuesta
-        if 'candidates' in result and result['candidates'] and 'content' in result['candidates'][0] and 'parts' in result['candidates'][0]['content']:
-            return result['candidates'][0]['content']['parts'][0]['text']
-        else:
-            log_error(f"Respuesta inesperada de Gemini (v1): {result}")
-            st.error("Respuesta inválida de la API de Gemini.")
-            return "Respuesta inválida de la API de Gemini."
-            
-    except requests.exceptions.HTTPError as http_err:
-        error_details = "No se pudieron obtener detalles del error."
-        try:
-            # Intenta obtener el mensaje de error específico del JSON de respuesta
-            error_details_json = http_err.response.json()
-            error_details = error_details_json.get("error", {}).get("message", json.dumps(error_details_json))
-        except json.JSONDecodeError:
-            # Si la respuesta no es JSON, usa el texto plano
-            error_details = http_err.response.text
-            
-        log_error(f"Error HTTP con Gemini: {http_err}", error_details)
-        st.error(f"Error de API con Gemini: {error_details}. Revisa tu clave de API y la configuración del proyecto.")
-        return "Error de API con Gemini."
-        
-    except Exception as e:
-        log_error("Error inesperado en llamada a Gemini", e)
-        st.error(f"Ocurrió un error inesperado al contactar a Gemini: {e}")
-        return "Error inesperado."
+        # 2. Define la configuración de generación (opcional pero recomendado)
+        generation_config = {
+          "temperature": 0.7,
+          "top_p": 1,
+          "top_k": 1,
+          "max_output_tokens": 2048,
+        }
 
+        # 3. Crea el modelo utilizando una versión estable y potente
+        model = genai.GenerativeModel(
+            model_name="gemini-1.5-pro-latest",
+            generation_config=generation_config
+        )
+        
+        # 4. Genera el contenido
+        response = model.generate_content(prompt)
+        
+        # 5. Retorna el texto de la respuesta de forma segura
+        return response.text
+            
+    except Exception as e:
+        # Captura errores específicos y generales para un mejor diagnóstico
+        error_message = f"Error al contactar a Gemini con la librería oficial: {str(e)}"
+        log_error(error_message)
+        st.error(error_message)
+        return "Error en la comunicación con la API de Gemini."
 
 def llamar_openai(prompt, api_key):
     try:
@@ -795,4 +788,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
