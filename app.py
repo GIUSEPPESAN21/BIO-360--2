@@ -19,6 +19,9 @@ import logging
 # Importación para OpenAI
 from openai import OpenAI
 
+# --- MEJORA: Importación de la librería oficial de Google ---
+import google.generativeai as genai
+
 # Importaciones para PDF
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, PageBreak, HRFlowable
 from reportlab.lib.pagesizes import letter
@@ -370,35 +373,20 @@ def crear_consentimiento_pdf(texto, filename):
         raise e
 
 # --- 10. APIs de IA ---
+# --- MEJORA: Se reemplaza la llamada manual por la librería oficial de Google ---
 def llamar_gemini(prompt, api_key):
-    # --- CORRECCIÓN: Se usa el nombre de modelo correcto para v1beta ---
-    api_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={api_key}"
-    headers = {"Content-Type": "application/json"}
-    payload = {"contents": [{"parts": [{"text": prompt}]}]}
     try:
-        response = requests.post(api_url, headers=headers, json=payload, timeout=90)
-        response.raise_for_status()
-        result = response.json()
-        if 'candidates' in result and result['candidates'] and 'content' in result['candidates'][0] and 'parts' in result['candidates'][0]['content']:
-            return result['candidates'][0]['content']['parts'][0]['text']
-        else:
-            log_error(f"Respuesta inesperada de Gemini: {result}")
-            st.error("Respuesta inválida de la API de Gemini.")
-            return "Respuesta inválida de la API de Gemini."
-    except requests.exceptions.HTTPError as http_err:
-        error_details = "No se pudieron obtener detalles del error."
-        try:
-            error_details_json = http_err.response.json()
-            error_details = error_details_json.get("error", {}).get("message", json.dumps(error_details_json))
-        except json.JSONDecodeError:
-            error_details = http_err.text
-        log_error(f"Error HTTP con Gemini: {http_err}", error_details)
-        st.error(f"Error de API con Gemini: {error_details}. Revisa la consola de Google Cloud (API y Facturación).")
-        return "Error de API con Gemini."
+        genai.configure(api_key=api_key)
+        model = genai.GenerativeModel('gemini-1.5-flash')
+        response = model.generate_content(prompt)
+        return response.text
     except Exception as e:
-        log_error("Error inesperado en llamada a Gemini", e)
-        st.error(f"Ocurrió un error inesperado al contactar a Gemini: {e}")
-        return "Error inesperado."
+        log_error("Error inesperado en llamada a Gemini con la librería oficial", e)
+        st.error(f"Ocurrió un error con la librería de Gemini: {e}")
+        # Devuelve un mensaje más específico si es posible
+        if "API key not valid" in str(e):
+            return "Error de API con Gemini: La clave no es válida. Por favor, verifícala."
+        return f"Error en la librería de Gemini: {e}"
 
 def llamar_openai(prompt, api_key):
     try:
