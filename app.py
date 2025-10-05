@@ -306,7 +306,7 @@ def crear_reporte_pdf_completo(data, filename):
 def generar_texto_consentimiento(caso):
     dilema_info = dilemas_data.get(caso.dilema_etico, {})
     riesgos = "\n".join([f"- {r}" for r in dilema_info.get("riesgos", ["No especificados"])])
-    beneficios = "\n".join([f"- {b}" for r in dilema_info.get("beneficios", ["No especificados"])])
+    beneficios = "\n".join([f"- {b}" for b in dilema_info.get("beneficios", ["No especificados"])])
     alternativas = "\n".join([f"- {a}" for a in dilema_info.get("alternativas", ["No especificadas"])])
     normativas = "\n".join([f"- {n}" for n in dilema_info.get("normativas", ["No especificadas"])])
     texto = f"""
@@ -390,9 +390,9 @@ def llamar_gemini(prompt, api_key):
           "max_output_tokens": 2048,
         }
 
-        # 3. Crea el modelo utilizando una versión estable y potente
+        # 3. Crea el modelo utilizando una versión estable y universalmente disponible
         model = genai.GenerativeModel(
-            model_name="gemini-1.5-pro-latest",
+            model_name="gemini-pro",
             generation_config=generation_config
         )
         
