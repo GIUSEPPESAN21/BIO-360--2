@@ -1,6 +1,5 @@
-# BIOETHICARE 360º - VERSIÓN 2.0 MEJORADA Y FUSIONADA
-# Autores: Anderson Díaz Pérez & Joseph Javier Sánchez Acuña
-# Versión: 2.1 - Funcionalidad completa del proyecto original con el motor de IA optimizado.
+# BIOETHICARE 360º
+# Autores: Joseph Javier Sánchez Acuña & Anderson Díaz Pérez
 
 # --- 1. Importaciones ---
 import os
@@ -44,8 +43,7 @@ logger = logging.getLogger(__name__)
 st.set_page_config(
     layout="wide", 
     page_title="BIOETHICARE 360", 
-    page_icon="🏥",
-    initial_sidebar_state="expanded"
+    page_icon="🏥"
 )
 
 # Se unifican los valores por defecto de ambas versiones
@@ -607,40 +605,13 @@ def display_login_form():
 
 
 def display_main_app():
-    # --- Interfaz del Sidebar Mejorada ---
-    with st.sidebar:
-        st.markdown("### 🤖 Estado de la IA")
-        if st.session_state.get('selected_model'):
-            st.info(f"**Modelo actual:**\n{st.session_state.selected_model}")
-        else:
-            st.info("Iniciando motor de IA...")
-
-        st.markdown("### 👤 Usuario Conectado")
-        if st.session_state.user and isinstance(st.session_state.user, dict):
-             user_email = st.session_state.user.get('email', 'No disponible')
-             st.write(f"_{user_email}_")
-        if st.button("Cerrar Sesión", use_container_width=True, type="secondary"):
-            st.session_state.user = None
-            st.rerun()
-            
-        st.markdown("---")
-        st.markdown("### ⚙️ Configuración de IA")
-        st.session_state.ai_provider = st.selectbox(
-            "Seleccionar Proveedor de IA", 
-            ("Google Gemini", "OpenAI"), 
-            key="ai_provider_selector"
-        )
-        st.markdown("---")
-        st.image("https://storage.googleapis.com/production-assets/assets/img/logo-gemini-1024.png", width=100)
-
-
     st.title("BIOETHICARE 360º 🏥")
-    st.info("""
-    **🎉 Versión 2.1 Fusionada y Optimizada** - Ahora con la funcionalidad completa del proyecto original y el motor de IA mejorado con Gemini 2.0 y fallback automático.
-    """)
-    with st.expander("Autores y Reconocimientos"):
-        st.markdown("""- **Anderson Díaz Pérez**: (Creador y titular de los derechos de autor de BioEthicCare360®): Doctor en Bioética, Doctor en Salud Pública, Magíster en Ciencias Básicas Biomédicas (Énfasis en Inmunología), Especialista en Inteligencia Artificial.\n- **Joseph Javier Sánchez Acuña**: Ingeniero Industrial, Desarrollador de Aplicaciones Clínicas, Experto en Inteligencia Artificial.""")
-    st.markdown("---")
+    
+    with st.expander("Autores"):
+        st.markdown("""
+        - **Anderson Díaz Pérez** (Creador y titular de los derechos de autor de BioEthicCare360®): Doctor en Bioética, Doctor en Salud Pública, Magíster en Ciencias Básicas Biomédicas (Énfasis en Inmunología), Especialista en Inteligencia Artificial.
+        - **Joseph Javier Sánchez Acuña** (Creador de la App Web): Ingeniero Industrial, Experto en Inteligencia Artificial y Desarrollo de Software.
+        """)
 
     GEMINI_API_KEY = st.secrets.get("GEMINI_API_KEY")
     OPENAI_API_KEY = st.secrets.get("OPENAI_API_KEY")
@@ -648,18 +619,15 @@ def display_main_app():
                          (st.session_state.ai_provider == "OpenAI" and OPENAI_API_KEY)
 
     if not api_key_disponible:
-        st.warning(f"⚠️ Clave de API para {st.session_state.ai_provider} no encontrada. Funciones de IA deshabilitadas.", icon="⚠️")
-    else:
-        st.success(f"✅ {st.session_state.ai_provider} configurado correctamente.")
-
+        st.warning(f"⚠️ Clave de API para {st.session_state.ai_provider} no encontrada. Funciones de IA deshabilitadas. Vaya a 'Perfil y Configuración' para verificar.", icon="⚠️")
     
-    tab_analisis, tab_chatbot, tab_consultar, tab_info = st.tabs([
+    tab_analisis, tab_chatbot, tab_consultar, tab_configuracion, tab_acerca_de = st.tabs([
         "**Análisis de Caso**", 
         "**Asistente de Bioética (Chatbot)**", 
         "**Consultar Casos Anteriores**",
-        "**Información del Sistema**"
+        "**Perfil y Configuración**",
+        "**Acerca de**"
     ])
-
 
     with tab_analisis:
         st.header("1. Asistente de Análisis Previo (Opcional)", anchor=False)
@@ -851,26 +819,54 @@ def display_main_app():
                 log_error("Error consultando casos desde Firebase", e)
                 st.error(f"Ocurrió un error al consultar tus casos desde Firebase: {e}")
     
-    with tab_info:
-        st.header("ℹ️ Información del Sistema")
-        col1, col2 = st.columns(2)
-        with col1:
-            st.markdown("### 🚀 Mejoras en esta Versión")
-            st.markdown("""
-            - ✅ **Motor de IA de Gemini 2.0** con fallback automático.
-            - ✅ **Configuración optimizada** para análisis bioético.
-            - ✅ **Manejo robusto de errores** y logging detallado.
-            - ✅ **Integración completa** con autenticación y base de datos Firebase.
-            - ✅ **Generación avanzada de reportes** en PDF y visualizaciones.
-            """)
-        with col2:
-            st.markdown("### 🔧 Modelos de IA Disponibles (Fallback)")
-            st.markdown("""
-            La aplicación probará automáticamente en este orden:
-            1. **gemini-2.0-flash-exp** ⭐ (Recomendado)
-            2. **gemini-1.5-pro-001** 3. **gemini-1.5-flash-001**
-            4. **gemini-1.5-flash**
-            """)
+    with tab_configuracion:
+        st.header("👤 Perfil y Configuración del Sistema")
+        
+        st.markdown("### Usuario Conectado")
+        if st.session_state.user and isinstance(st.session_state.user, dict):
+             user_email = st.session_state.user.get('email', 'No disponible')
+             st.success(f"Sesión iniciada como: **{user_email}**")
+        if st.button("Cerrar Sesión", use_container_width=True, type="secondary"):
+            st.session_state.user = None
+            st.rerun()
+        
+        st.divider()
+
+        st.markdown("### ⚙️ Configuración de IA")
+        st.session_state.ai_provider = st.selectbox(
+            "Seleccionar Proveedor de IA", 
+            ("Google Gemini", "OpenAI"), 
+            key="ai_provider_selector"
+        )
+        if api_key_disponible:
+            st.info(f"Proveedor '{st.session_state.ai_provider}' seleccionado.")
+        
+        st.divider()
+
+        st.markdown("### 🤖 Estado del Motor de IA")
+        if st.session_state.get('selected_model'):
+            st.info(f"**Modelo activo:**\n\n`{st.session_state.selected_model}`")
+        else:
+            st.info("Iniciando motor de IA...")
+        st.image("https://storage.googleapis.com/production-assets/assets/img/logo-gemini-1024.png", width=100)
+    
+    with tab_acerca_de:
+        st.markdown("### Acerca de esta Herramienta")
+        st.markdown(
+            "Esta es una suite de software diseñada para asistir a profesionales de la salud en el "
+            "análisis y deliberación de casos bioéticos complejos. Utiliza inteligencia artificial para generar "
+            "análisis, identificar puntos clave y facilitar un proceso de toma de decisiones estructurado y ético."
+        )
+        st.divider()
+        st.markdown("##### Autor de la App Web")
+        st.write("**Joseph Javier Sánchez Acuña**")
+        st.write("_Ingeniero Industrial, Experto en Inteligencia Artificial y Desarrollo de Software._")
+        st.markdown("---")
+        st.markdown("##### Contacto")
+        st.write("🔗 [Perfil de LinkedIn](https://www.linkedin.com/in/joseph-javier-sánchez-acuña-150410275)")
+        st.write("📂 [Repositorio en GitHub](https://github.com/GIUSEPPESAN21)")
+        st.write("📧 joseph.sanchez@uniminuto.edu.co")
+
 
 # --- 12. Flujo Principal de la Aplicación ---
 def main():
@@ -881,3 +877,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
