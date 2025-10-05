@@ -375,14 +375,13 @@ def crear_consentimiento_pdf(texto, filename):
 # --- 10. APIs de IA ---
 def llamar_gemini(prompt, api_key):
     """
-    Llama a la API de Gemini utilizando la librería oficial de Google,
-    apuntando al modelo más reciente para asegurar compatibilidad.
+    Llama a la API de Gemini utilizando la librería oficial de Google.
     """
     try:
         # 1. Configura la API key de forma segura
         genai.configure(api_key=api_key)
         
-        # 2. Define la configuración de generación (opcional pero recomendado)
+        # 2. Define la configuración de generación
         generation_config = {
           "temperature": 0.7,
           "top_p": 1,
@@ -390,20 +389,43 @@ def llamar_gemini(prompt, api_key):
           "max_output_tokens": 2048,
         }
 
-        # 3. Crea el modelo utilizando una versión estable y universalmente disponible
+        # 3. Define la configuración de seguridad (recomendado)
+        safety_settings = [
+            {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_MEDIUM_AND_ABOVE"},
+            {"category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_MEDIUM_AND_ABOVE"},
+            {"category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "BLOCK_MEDIUM_AND_ABOVE"},
+            {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_MEDIUM_AND_ABOVE"},
+        ]
+
+        # 4. Crea el modelo utilizando una versión más reciente y estable
         model = genai.GenerativeModel(
-            model_name="gemini-pro",
-            generation_config=generation_config
+            model_name="gemini-1.5-pro-latest", # Modelo actualizado
+            generation_config=generation_config,
+            safety_settings=safety_settings
         )
         
-        # 4. Genera el contenido
+        # 5. Genera el contenido
         response = model.generate_content(prompt)
         
-        # 5. Retorna el texto de la respuesta de forma segura
-        return response.text
+        # 6. Valida y retorna la respuesta de la forma más robusta
+        if response.parts:
+            # Une todas las partes del texto en la respuesta
+            return "".join(part.text for part in response.parts)
+        elif response.prompt_feedback:
+            # Si no hay 'parts', la respuesta pudo ser bloqueada.
+            # Esto nos da más detalles del porqué.
+            block_reason = response.prompt_feedback.block_reason
+            error_message = f"La solicitud a Gemini fue bloqueada. Razón: {block_reason}"
+            log_error(error_message)
+            st.warning(error_message)
+            return f"Error: La solicitud fue bloqueada por políticas de seguridad ({block_reason})."
+        else:
+             # Si la respuesta llega en un formato inesperado
+             log_error("Respuesta inesperada de Gemini sin 'parts' ni 'prompt_feedback'.")
+             return "No se pudo obtener una respuesta válida de Gemini."
             
     except Exception as e:
-        # Captura errores específicos y generales para un mejor diagnóstico
+        # Captura cualquier otro error en la comunicación
         error_message = f"Error al contactar a Gemini con la librería oficial: {str(e)}"
         log_error(error_message)
         st.error(error_message)
