@@ -376,49 +376,71 @@ def crear_consentimiento_pdf(texto, filename):
 def llamar_gemini(prompt, api_key):
     """
     Llama a la API de Gemini utilizando la librería oficial de Google.
-    Esta versión utiliza el modelo 'gemini-1.5-pro-latest' y es más robusta.
+    Versión optimizada con modelos actuales y fallback automático.
     """
     try:
         genai.configure(api_key=api_key)
         
+        # Configuración optimizada para análisis bioético
         generation_config = {
-          "temperature": 0.7,
-          "top_p": 1,
-          "top_k": 1,
-          "max_output_tokens": 2048,
+            "temperature": 0.3,  # Reducido para respuestas más consistentes
+            "top_p": 0.95,       # Optimizado para análisis técnico
+            "top_k": 40,         # Mejor para contenido especializado
+            "max_output_tokens": 4096, # Aumentado para análisis más detallados
         }
 
+        # Configuración de seguridad menos restrictiva para contenido médico
         safety_settings = [
-            {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_MEDIUM_AND_ABOVE"},
-            {"category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_MEDIUM_AND_ABOVE"},
-            {"category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "BLOCK_MEDIUM_AND_ABOVE"},
-            {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_MEDIUM_AND_ABOVE"},
+            {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_ONLY_HIGH"},
+            {"category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_ONLY_HIGH"},
+            {"category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "BLOCK_ONLY_HIGH"},
+            {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_ONLY_HIGH"},
         ]
 
-        # ========= LA CORRECCIÓN DEFINITIVA ESTÁ AQUÍ =========
-        model = genai.GenerativeModel(
-            model_name="gemini-1.5-pro-latest", # Usamos el nombre del modelo más reciente
-            generation_config=generation_config,
-            safety_settings=safety_settings
-        )
+        # Lista de modelos en orden de preferencia (del más potente al más básico)
+        # NOTA: Los nombres de los modelos pueden cambiar. Se usan los más estables a la fecha.
+        modelos_disponibles = [
+            "gemini-1.5-pro-latest",   # Modelo pro más reciente y potente
+            "gemini-1.5-flash-latest", # Modelo flash más reciente y rápido
+            "gemini-1.0-pro",          # Modelo pro anterior como respaldo
+        ]
         
-        response = model.generate_content(prompt)
+        # Intentar con cada modelo hasta encontrar uno que funcione
+        for modelo in modelos_disponibles:
+            try:
+                model = genai.GenerativeModel(
+                    model_name=modelo,
+                    generation_config=generation_config,
+                    safety_settings=safety_settings
+                )
+                
+                response = model.generate_content(prompt)
+                
+                # Manejo robusto de la respuesta
+                if response.parts:
+                    texto_respuesta = "".join(part.text for part in response.parts)
+                    if texto_respuesta.strip():  # Verificar que no esté vacía
+                        logger.info(f"Respuesta exitosa usando modelo: {modelo}")
+                        return texto_respuesta
+                
+                # Si la respuesta está bloqueada, intentar con el siguiente modelo
+                if hasattr(response, 'prompt_feedback') and response.prompt_feedback:
+                    block_reason = response.prompt_feedback.block_reason
+                    logger.warning(f"Modelo {modelo} bloqueado: {block_reason}. Probando siguiente modelo...")
+                    continue
+                    
+            except Exception as modelo_error:
+                logger.warning(f"Error con modelo {modelo}: {str(modelo_error)}. Probando siguiente modelo...")
+                continue
         
-        # Manejo robusto de la respuesta para evitar errores si es bloqueada
-        if response.parts:
-            return "".join(part.text for part in response.parts)
-        elif hasattr(response, 'prompt_feedback') and response.prompt_feedback:
-            block_reason = response.prompt_feedback.block_reason
-            error_message = f"La solicitud a Gemini fue bloqueada. Razón: {block_reason}"
-            log_error(error_message)
-            st.warning(error_message)
-            return f"Error: La solicitud fue bloqueada por políticas de seguridad ({block_reason})."
-        else:
-             # A veces la respuesta puede no tener 'parts' si está vacía
-             return response.text
+        # Si ningún modelo funcionó
+        error_message = "Todos los modelos de Gemini no están disponibles o fueron bloqueados."
+        log_error(error_message)
+        st.error(error_message)
+        return "Error: No se pudo obtener respuesta de ningún modelo de Gemini disponible."
             
     except Exception as e:
-        error_message = f"Error al contactar a Gemini con la librería oficial: {str(e)}"
+        error_message = f"Error crítico al contactar a Gemini: {str(e)}"
         log_error(error_message)
         st.error(error_message)
         return "Error en la comunicación con la API de Gemini."
