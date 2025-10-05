@@ -398,11 +398,9 @@ def llamar_gemini(prompt, api_key):
         ]
 
         # Lista de modelos en orden de preferencia (del más potente al más básico)
-        # NOTA: Los nombres de los modelos pueden cambiar. Se usan los más estables a la fecha.
         modelos_disponibles = [
             "gemini-1.5-pro-latest",   # Modelo pro más reciente y potente
             "gemini-1.5-flash-latest", # Modelo flash más reciente y rápido
-            "gemini-1.0-pro",          # Modelo pro anterior como respaldo
         ]
         
         # Intentar con cada modelo hasta encontrar uno que funcione
@@ -772,9 +770,9 @@ def display_main_app():
                         full_prompt = f"Eres un experto en bioética. Caso: {contexto}. Pregunta: '{prompt}'. Responde concisamente."
                         respuesta = ""
                         if st.session_state.ai_provider == "Google Gemini":
-                            respuesta = llamar_gemini(full_prompt, GEMINI_API_KEY)
+                            respuesta = llamar_gemini(prompt, GEMINI_API_KEY)
                         else:
-                            respuesta = llamar_openai(full_prompt, OPENAI_API_KEY)
+                            respuesta = llamar_openai(prompt, OPENAI_API_KEY)
                         st.session_state.chat_history.append({"role": "assistant", "content": respuesta})
                     if db and st.session_state.case_id:
                         try:
@@ -824,3 +822,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
