@@ -16,7 +16,7 @@ import plotly.io as pio
 import time
 import logging
 
-# --- MEJORA: Importación para OpenAI ---
+# Importación para OpenAI
 from openai import OpenAI
 
 # Importaciones para PDF
@@ -370,9 +370,9 @@ def crear_consentimiento_pdf(texto, filename):
         raise e
 
 # --- 10. APIs de IA ---
-# --- MEJORA: Manejo de errores más detallado ---
 def llamar_gemini(prompt, api_key):
-    api_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key={api_key}"
+    # --- CORRECCIÓN: Se usa el nombre de modelo correcto para v1beta ---
+    api_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={api_key}"
     headers = {"Content-Type": "application/json"}
     payload = {"contents": [{"parts": [{"text": prompt}]}]}
     try:
