@@ -108,15 +108,16 @@ def llamar_gemini(prompt, api_key):
             {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_ONLY_HIGH"},
         ]
 
-        # Lista de modelos actualizada para el fallback automático
-        modelos_disponibles = [
-            "gemini-2.0-flash-exp",
-            "gemini-1.5-pro-001",
-            "gemini-1.5-flash-001",
-            "gemini-1.5-flash",
+        # Lista de modelos priorizada, AHORA INCLUYE el modelo experimental.
+        model_candidates = [
+            "gemini-2.0-flash-exp",      # Modelo experimental más reciente (prioridad 1)
+            "gemini-1.5-flash-latest",   # Versión más reciente y rápida de 1.5
+            "gemini-1.5-pro-latest",     # Versión Pro más reciente de 1.5
+            "gemini-1.5-flash",          # Modelo Flash básico
+            "gemini-1.5-pro",            # Modelo Pro básico
         ]
         
-        for modelo in modelos_disponibles:
+        for modelo in model_candidates:
             try:
                 model = genai.GenerativeModel(
                     model_name=modelo,
@@ -877,4 +878,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
