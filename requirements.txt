@@ -18,3 +18,8 @@ setuptools>=68.0.0
 psutil>=5.9.0
 python-dotenv>=1.0.0
 
+# --- Desarrollo y pruebas ---
+# La lógica del semáforo ético y la anonimización de PII están cubiertas por pytest.
+# Ejecutar desde la raíz del proyecto:  python -m pytest tests -q
+pytest>=8.0.0
+
