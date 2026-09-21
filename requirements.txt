@@ -3,23 +3,29 @@ pandas>=2.0.0
 plotly>=5.15.0
 numpy>=1.24.0
 reportlab>=4.0.0
+kaleido>=0.2.1
+requests>=2.31.0
+
+# --- Proveedores de IA ---
 google-generativeai>=0.8.0
 openai>=1.0.0
+
+# --- Firebase ---
+# Solo el Admin SDK (servidor). La autenticación de cliente va por la API REST de
+# Identity Toolkit en services/auth_service.py, usando `requests`.
+#
+# Pyrebase4 fue RETIRADO a propósito. Arrastraba una cadena sin mantenimiento:
+#   Pyrebase4 -> gcloud==0.18.3 (última versión de 2015) -> pkg_resources
+#             -> oauth2client (obsoleto desde 2018)
+#             -> python-jwt, requests-toolbelt, pycryptodome
+# `pkg_resources` se retiró de las versiones recientes de setuptools y Python 3.12+ ya
+# no instala setuptools por defecto, así que `import pyrebase` fallaba al arrancar con
+# `ModuleNotFoundError: No module named 'pkg_resources'`. No es reparable desde aquí:
+# está en una dependencia transitiva abandonada. Con Pyrebase fuera, `setuptools`
+# tampoco se necesita como dependencia explícita.
 firebase-admin>=6.2.0
-Pyrebase4==4.8.0
-python-jwt==3.3.4
-gcloud==0.18.3
-oauth2client==4.1.3
-requests-toolbelt==0.9.1
-pycryptodome==3.15.0
-requests>=2.31.0
-kaleido>=0.2.1
-setuptools>=68.0.0
-psutil>=5.9.0
-python-dotenv>=1.0.0
 
 # --- Desarrollo y pruebas ---
 # La lógica del semáforo ético y la anonimización de PII están cubiertas por pytest.
 # Ejecutar desde la raíz del proyecto:  python -m pytest tests -q
 pytest>=8.0.0
-

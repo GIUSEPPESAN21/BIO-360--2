@@ -63,20 +63,31 @@ def initialize_firebase_admin(secrets: Any) -> Optional[Any]:
 
 
 def initialize_firebase_auth(secrets: Any) -> Optional[Any]:
-    """Inicializa Pyrebase para la autenticación de cliente."""
+    """
+    Inicializa la autenticación de cliente a partir de `[firebase_client_config]`.
+
+    Ya NO usa Pyrebase. Pyrebase arrastraba `gcloud` (sin mantenimiento desde 2015), que
+    importa `pkg_resources`; al haber sido retirado de las versiones recientes de
+    `setuptools`, `import pyrebase` fallaba al arrancar en Python 3.13 con
+    `ModuleNotFoundError: No module named 'pkg_resources'`.
+
+    En su lugar se usa `services.auth_service`, que habla directamente con la API REST de
+    Firebase Identity Toolkit. El objeto devuelto conserva la forma `app.auth()` de
+    Pyrebase, así que la capa de UI no cambia.
+    """
     try:
-        import pyrebase
+        from services.auth_service import initialize_auth_app
     except ImportError as e:  # pragma: no cover
-        logger.error("pyrebase no está instalado: %s", e)
+        logger.error("No se pudo importar services.auth_service: %s", e)
         return None
 
     try:
         if "firebase_client_config" not in secrets:
             logger.error("firebase_client_config no encontrado en secrets.")
             return None
-        return pyrebase.initialize_app(dict(secrets["firebase_client_config"]))
+        return initialize_auth_app(dict(secrets["firebase_client_config"]))
     except Exception as e:
-        logger.error("Error crítico al inicializar Pyrebase: %s", e)
+        logger.error("Error crítico al inicializar la autenticación de Firebase: %s", e)
         return None
 
 
