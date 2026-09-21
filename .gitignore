@@ -1,0 +1,86 @@
+# =============================================================================
+# BIOETHICARE 360 - .gitignore
+# =============================================================================
+# CRÍTICO: este proyecto maneja credenciales de una cuenta de servicio de
+# Firebase (private_key) y claves de API de modelos de IA. Publicar cualquiera
+# de estos archivos en un repositorio remoto equivale a entregar acceso de
+# escritura a la base de datos clínica.
+#
+# El archivo de plantilla `secrets_template.toml` SÍ se versiona (no contiene
+# valores reales); el archivo efectivo `.streamlit/secrets.toml` NUNCA.
+# =============================================================================
+
+# --- Secretos y credenciales (NUNCA versionar) -------------------------------
+.streamlit/secrets.toml
+.streamlit/*.toml
+!.streamlit/config.toml
+secrets.toml
+*serviceAccount*.json
+*service-account*.json
+*firebase-adminsdk*.json
+credentials.json
+.env
+.env.*
+!.env.example
+
+# --- Python ------------------------------------------------------------------
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# --- Entornos virtuales ------------------------------------------------------
+.venv/
+venv/
+ENV/
+env/
+.virtualenv/
+
+# --- Pruebas y cobertura -----------------------------------------------------
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.nox/
+coverage.xml
+*.cover
+
+# --- Herramientas de tipado / linting ----------------------------------------
+.mypy_cache/
+.dmypy.json
+.ruff_cache/
+
+# --- Editores e IDE ----------------------------------------------------------
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# --- Sistema operativo -------------------------------------------------------
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# --- Artefactos de la aplicación ---------------------------------------------
+# PDFs generados en tiempo de ejecución (reportes y consentimientos con datos
+# clínicos reales): no deben salir del entorno de ejecución.
+Reporte_*.pdf
+Consentimiento_*.pdf
+*.log

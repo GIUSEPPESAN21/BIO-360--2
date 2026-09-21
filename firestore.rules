@@ -1,0 +1,99 @@
+rules_version = '2';
+
+// =============================================================================
+// BIOETHICARE 360 - Reglas de seguridad de Firestore
+// =============================================================================
+// Principio: la autenticación en el frontend es INSUFICIENTE. Estas reglas
+// garantizan server-side que un usuario autenticado solo pueda leer y escribir
+// dentro de su propia ruta `usuarios/{uid}`.
+//
+// Despliegue:
+//   firebase deploy --only firestore:rules
+//
+// Verificación local (emulador):
+//   firebase emulators:start --only firestore
+// =============================================================================
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // --- Funciones auxiliares -------------------------------------------------
+
+    function estaAutenticado() {
+      return request.auth != null;
+    }
+
+    function esPropietario(uid) {
+      return estaAutenticado() && request.auth.uid == uid;
+    }
+
+    // Exige email verificado para escribir datos clínicos.
+    // Si aún no gestionas verificación de email, comenta esta condición
+    // en `puedeEscribirDatosClinicos` y déjalo solo en esPropietario(uid).
+    function emailVerificado() {
+      return estaAutenticado() && request.auth.token.email_verified == true;
+    }
+
+    function puedeEscribirDatosClinicos(uid) {
+      return esPropietario(uid);
+    }
+
+    // Valida la forma mínima de un caso para evitar documentos arbitrarios
+    function casoValido() {
+      return request.resource.data.keys().hasAll(['ID del Caso'])
+             && request.resource.data['ID del Caso'] is string
+             && request.resource.data['ID del Caso'].size() > 0
+             && request.resource.data['ID del Caso'].size() <= 200
+             // Límite defensivo de tamaño de documento (M5: ya no se guardan
+             // los JSON de Plotly, así que un caso legítimo es pequeño)
+             && request.resource.size() < 500000;
+    }
+
+    // --- Documento raíz del usuario ------------------------------------------
+
+    match /usuarios/{uid} {
+      allow read:   if esPropietario(uid);
+      allow create: if esPropietario(uid);
+      allow update: if esPropietario(uid);
+      // Nunca se permite borrar el nodo del usuario desde el cliente:
+      // eliminar datos clínicos debe pasar por un proceso administrativo.
+      allow delete: if false;
+
+      // --- Casos bioéticos ---------------------------------------------------
+      // Ruta: usuarios/{uid}/casos/{casoId}
+      match /casos/{casoId} {
+        allow read: if esPropietario(uid);
+
+        allow create: if puedeEscribirDatosClinicos(uid) && casoValido();
+        allow update: if puedeEscribirDatosClinicos(uid) && casoValido();
+
+        // El borrado de un caso clínico se bloquea desde el cliente: la
+        // trazabilidad de una deliberación bioética debe preservarse.
+        // Si se requiere retiro de datos (derecho de supresión, Ley 1581),
+        // debe ejecutarse por el Admin SDK con registro en el audit log.
+        allow delete: if false;
+      }
+
+      // --- Audit log INMUTABLE (M8) -----------------------------------------
+      // Ruta: usuarios/{uid}/audit_log/{entradaId}
+      // Se permite crear y leer, pero NUNCA modificar ni borrar.
+      // La inmutabilidad queda garantizada aquí, no por convención del cliente.
+      match /audit_log/{entradaId} {
+        allow read:   if esPropietario(uid);
+        allow create: if esPropietario(uid)
+                      && request.resource.data.keys().hasAll([
+                           'accion', 'usuario_uid', 'timestamp_utc', 'hash_encadenado'
+                         ])
+                      && request.resource.data.usuario_uid == uid;
+        allow update: if false;
+        allow delete: if false;
+      }
+    }
+
+    // --- Cierre por defecto ---------------------------------------------------
+    // Cualquier ruta no declarada explícitamente queda denegada.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

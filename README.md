@@ -1,74 +1,180 @@
-🏥 BIOETHICARE 360º - Versión 2.1 Fusionada y Optimizada
-Software de Análisis Bioético Avanzado con Inteligencia Artificial, Autenticación y Base de Datos
+# 🏥 BIOETHICARE 360º
 
-Este proyecto combina la funcionalidad completa de la aplicación original de GitHub con el motor de IA optimizado de la versión 2.0, solucionando el error 404 de Gemini y añadiendo mayor robustez.
+Software de análisis y deliberación bioética con inteligencia artificial, autenticación
+y base de datos.
 
-✅ Mejoras Clave en esta Versión
-Motor de IA Optimizado: Se implementó la función llamar_gemini mejorada que:
+Asiste a comités de bioética hospitalarios en el análisis de casos complejos: extrae
+elementos bioéticos de una historia clínica, registra la ponderación multiperspectiva de
+los cuatro principios, calcula un semáforo ético determinista, genera un análisis
+deliberativo asistido por IA y produce el reporte y el consentimiento informado en PDF.
 
-Utiliza modelos actualizados como Gemini 2.0 Flash Experimental.
+---
 
-Implementa un fallback automático entre varios modelos de Gemini para garantizar la disponibilidad.
+## Arquitectura
 
-Tiene una configuración de parámetros optimizada para el análisis bioético.
+La aplicación está organizada en tres capas. `app.py` es un punto de entrada delgado que
+solo las compone; no contiene lógica de negocio.
 
-Funcionalidad Completa Conservada: Mantiene todas las características del proyecto original:
+```
+app.py                  Composición: estado, conexiones, orquestador, pestañas
+core/                   Dominio puro, sin Streamlit ni red — testeable en aislamiento
+  modelos.py              CasoBioetico, conversiones seguras, constantes de dominio
+  etica.py                Semáforo ético DETERMINISTA (motor de reglas, no IA)
+  anonimizacion.py        Capa de anonimización de PII y rehidratación
+  conocimiento.py         Carga y validación de dilemas.json
+services/               Integraciones externas
+  ai_orchestrator.py      Único camino hacia un modelo: anonimiza, llama, audita
+  ai/                     Proveedores intercambiables (patrón Strategy)
+    base.py                 Interfaz AIProvider + RespuestaIA
+    gemini_provider.py      Google Gemini
+    openai_provider.py      OpenAI
+    kiro_provider.py        Kiro
+    prompts.py              Prompts versionados + grounding normativo (RAG)
+    schemas.py              Esquemas JSON validables y parsing tolerante
+  firebase_service.py     Inicialización y repositorio de casos (con paginación)
+  audit.py                Registro de auditoría inmutable, encadenado con SHA-256
+  charts.py               Figuras Plotly, regeneradas bajo demanda
+  pdf_service.py          Reporte y consentimiento en PDF, con gráficos incrustados
+  reportes.py             Armado del reporte y del texto de consentimiento
+ui/                     Interfaz Streamlit, una pestaña por módulo
+tests/                  Suite pytest
+firestore.rules         Reglas de seguridad del lado del servidor
+app_legacy.py           Monolito anterior — NO EJECUTAR (ver más abajo)
+```
 
-Autenticación de usuarios con Firebase.
+### Garantías que la arquitectura hace cumplir
 
-Almacenamiento y consulta de casos en la base de datos Firestore.
+Todas las llamadas a un modelo pasan por `services/ai_orchestrator.py`, que aplica en
+este orden:
 
-Análisis multiperspectiva detallado.
+1. **Anonimización de PII.** Nombres, fechas, lugares, documentos, teléfonos y correos se
+   sustituyen por marcadores (`[PACIENTE_1]`, `[FECHA_1]`) **antes** de que el texto salga
+   hacia una API de terceros. Los valores reales se rehidratan solo al mostrar el
+   resultado al usuario autorizado. Requisito de la Ley 1581, HIPAA y GDPR.
+2. **Proveedor intercambiable.** Añadir un modelo es implementar `AIProvider` y
+   registrarlo en la fábrica; no se añaden condicionales por toda la aplicación.
+3. **Auditoría.** Cada llamada queda registrada con usuario, modelo exacto, versión de
+   prompt, hash del prompt y timestamp. Nunca se almacena el texto clínico, solo su hash.
 
-Generación de reportes completos y consentimientos informados en formato PDF.
+**La IA no decide.** El semáforo ético (severidad, advertencias, recomendaciones) lo
+calcula el motor de reglas determinista de `core/etica.py`. La IA puede *explicar* ese
+resultado, nunca recalcularlo.
 
-Visualizaciones de datos avanzadas.
+> ⚠️ **`app_legacy.py`** es el monolito anterior, conservado como referencia histórica.
+> **No debe ejecutarse:** enviaba las historias clínicas sin anonimizar a la API de IA,
+> fijaba los filtros de seguridad del modelo en `BLOCK_ONLY_HIGH` de forma permanente y
+> no registraba nada en el log de auditoría.
 
-Interfaz Mejorada: Se ha añadido una nueva pestaña de "Información del Sistema" y se ha mejorado el sidebar para mostrar el estado del modelo de IA en tiempo real.
+---
 
-🚀 Instalación y Ejecución
-1. Instalar Dependencias
-Asegúrate de tener todas las librerías necesarias.
+## Instalación
 
+### 1. Dependencias
+
+```bash
 pip install -r requirements.txt
+```
 
-2. Configurar Credenciales (secrets.toml)
-Crea un archivo llamado secrets.toml dentro de una carpeta .streamlit en la raíz de tu proyecto. Este archivo contendrá tus claves de API y las credenciales de Firebase.
+### 2. Credenciales
 
-Utiliza el archivo secrets_template.toml como guía.
+Copia la plantilla y rellena los valores reales:
 
-3. Ejecutar la Aplicación
-Una vez configurado, ejecuta la aplicación con Streamlit.
+```bash
+mkdir .streamlit
+copy secrets_template.toml .streamlit\secrets.toml    # Windows
+# cp secrets_template.toml .streamlit/secrets.toml    # Linux / macOS
+```
 
+`secrets_template.toml` documenta cada campo: la clave del proveedor de IA que vayas a
+usar (`GEMINI_API_KEY`, `OPENAI_API_KEY` o `KIRO_API_KEY`), las credenciales de servidor
+de Firebase (`[firebase_credentials]`) y la configuración de cliente
+(`[firebase_client_config]`).
+
+> 🔒 `.streamlit/secrets.toml` está excluido por `.gitignore` y **nunca** debe
+> versionarse: contiene la clave privada de la cuenta de servicio, que da acceso
+> administrativo completo a los datos clínicos.
+
+La aplicación arranca sin credenciales: avisa por la interfaz de lo que falta y
+deshabilita las funciones correspondientes, en lugar de fallar.
+
+### 3. Desplegar las reglas de Firestore
+
+**Paso obligatorio.** La autenticación del frontend no es suficiente: sin estas reglas,
+la base de datos no impone el aislamiento entre usuarios.
+
+```bash
+firebase deploy --only firestore:rules
+```
+
+Las reglas restringen a cada usuario a su propia ruta `usuarios/{uid}`, y hacen el
+registro de auditoría inmutable (permiten crear entradas, prohíben modificarlas y
+borrarlas).
+
+### 4. Ejecutar
+
+```bash
 streamlit run app.py
+```
 
-🔧 Solución del Error 404 de Gemini
-❌ Problema Original: El código anterior usaba modelos de Gemini que quedaron obsoletos (gemini-1.5-pro-latest), lo que provocaba un error 404 Not Found.
+---
 
-✅ Solución Implementada: La nueva función llamar_gemini ahora utiliza una lista de modelos actuales y los prueba en orden de preferencia. Si el modelo más avanzado falla o es bloqueado, la aplicación pasa automáticamente al siguiente, garantizando una alta disponibilidad.
+## Pruebas
 
-🎯 Modelos en Orden de Preferencia
-gemini-2.0-flash-exp ⭐ (Más avanzado)
+```bash
+python -m pytest tests -q
+```
 
-gemini-1.5-pro-001 (Más estable)
+La suite cubre la lógica que no puede depender de comprobaciones manuales en la interfaz:
 
-gemini-1.5-flash-001 (Más rápido)
+| Archivo | Qué protege |
+|---|---|
+| `test_etica.py` | Umbrales del semáforo ético. Incluye un candado que falla si alguien los modifica, porque eso reclasificaría casos ya analizados |
+| `test_anonimizacion.py` | Reversibilidad y estabilidad de los tokens; que ningún tipo de PII sobreviva a la anonimización |
+| `test_modelos.py` | Conversiones seguras en la frontera entre el formulario y la aritmética del semáforo |
+| `test_schemas.py` | Parsing tolerante de la salida del modelo; que un dilema inventado se descarte en lugar de crear categorías inexistentes |
+| `test_conocimiento.py` | Que `dilemas.json` cumpla su esquema y que una base corrupta degrade sin tumbar la aplicación |
+| `test_ai_factory.py` | Selección de proveedor y regresión del fallo de secretos ausentes |
+| `test_pdf.py` | Generación de PDF, incrustación de gráficos y robustez ante caracteres que rompen el XML de ReportLab |
+| `test_app.py` | Integración del punto de entrada con `AppTest`: que ambas rutas rendericen y que sin credenciales se avise en vez de romper |
 
-gemini-1.5-flash (Básico)
+Las pruebas corren deliberadamente **sin** `secrets.toml`, para verificar el camino de
+degradación. No cubren el login real contra Firebase, la persistencia en Firestore ni las
+llamadas efectivas a los modelos: eso requiere credenciales reales.
 
-📋 Uso de la Aplicación
-Inicio de Sesión: Regístrate o inicia sesión con tus credenciales. La aplicación se conecta a Firebase para gestionar los usuarios.
+---
 
-Análisis de Caso:
+## Uso
 
-Usa el análisis previo de IA para extraer puntos clave de una historia clínica.
+1. **Inicio de sesión.** Registro y autenticación contra Firebase.
+2. **Análisis previo (opcional).** Pega la historia clínica; la IA extrae los elementos
+   bioéticos y sugiere un dilema del catálogo. El texto se anonimiza antes de enviarse.
+3. **Registro del caso.** Datos del paciente, dilema, descripción, contexto sociocultural
+   y la ponderación multiperspectiva de los cuatro principios (0–5).
+4. **Dashboard.** Semáforo ético, visualizaciones comparativas y análisis de consenso.
+5. **Análisis deliberativo.** La IA elabora el análisis del comité, citando únicamente la
+   base normativa verificada del sistema.
+6. **Descargas.** Reporte deliberativo y consentimiento informado en PDF, con los
+   gráficos incrustados y la trazabilidad del modelo utilizado.
+7. **Asistente de bioética.** Chatbot contextual sobre el caso activo, con preguntas
+   guiadas para la deliberación.
+8. **Consultar casos.** Casos guardados del usuario, con paginación.
 
-Completa el formulario detallado del caso y las ponderaciones multiperspectiva.
+---
 
-Genera un dashboard interactivo con visualizaciones y análisis de coherencia ética.
+## Autores
 
-Descarga el reporte completo y el consentimiento informado en PDF.
+- **Anderson Díaz Pérez** — Creador y titular de los derechos de autor de
+  BioEthicCare360®. Doctor en Bioética, Doctor en Salud Pública, Magíster en Ciencias
+  Básicas Biomédicas (énfasis en Inmunología), Especialista en Inteligencia Artificial.
+- **Joseph Javier Sánchez Acuña** — Creador de la App Web. Ingeniero Industrial, Experto
+  en Inteligencia Artificial y Desarrollo de Software.
 
-Asistente de Bioética: Utiliza el chatbot contextual para deliberar sobre el caso activo, con preguntas guiadas para facilitar el análisis.
+📂 [Repositorio en GitHub](https://github.com/GIUSEPPESAN21) · 📧 joseph.sanchez@uniminuto.edu.co
 
-Consultar Casos: Accede a todos los casos que has analizado y guardado previamente en tu cuenta.
+---
+
+## Aviso de uso
+
+Esta herramienta **apoya** la deliberación bioética; **no sustituye** la decisión del
+comité de bioética ni del equipo tratante, y no emite diagnósticos médicos ni
+indicaciones terapéuticas.
