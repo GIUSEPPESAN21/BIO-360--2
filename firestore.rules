@@ -88,6 +88,23 @@ service cloud.firestore {
         allow update: if false;
         allow delete: if false;
       }
+
+      // --- Validación de usabilidad SUS (DeliberIA, Fase 3) ------------------
+      // Ruta: usuarios/{uid}/validacion_usabilidad/{respuestaId}
+      // Append-only: un cuestionario enviado es evidencia de investigación y no
+      // se reescribe. Se exigen las 10 respuestas y la puntuación calculada.
+      match /validacion_usabilidad/{respuestaId} {
+        allow read:   if esPropietario(uid);
+        allow create: if esPropietario(uid)
+                      && request.resource.data.keys().hasAll(['respuestas', 'puntuacion', 'timestamp_utc'])
+                      && request.resource.data.respuestas is list
+                      && request.resource.data.respuestas.size() == 10
+                      && request.resource.data.puntuacion is number
+                      && request.resource.data.puntuacion >= 0
+                      && request.resource.data.puntuacion <= 100;
+        allow update: if false;
+        allow delete: if false;
+      }
     }
 
     // --- Cierre por defecto ---------------------------------------------------

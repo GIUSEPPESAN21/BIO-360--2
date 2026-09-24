@@ -19,9 +19,13 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 from core.conocimiento import info_dilema
+from core.indicadores import calcular_indicadores
 from core.modelos import safe_str
 
-SCHEMA_VERSION = 2  # v1 = incluía JSON de Plotly; v2 = solo ponderaciones (M5)
+# v1 = incluía JSON de Plotly; v2 = solo ponderaciones (M5);
+# v3 = DeliberIA: dominio clínico, datos estructurados, indicadores de deliberación,
+#      explicación XAI del semáforo, tiempo de deliberación y validación experta.
+SCHEMA_VERSION = 3
 
 # Claves pesadas del esquema v1 que ya no se escriben (se mantienen documentadas
 # para poder limpiarlas de documentos antiguos).
@@ -38,8 +42,14 @@ def generar_reporte_completo(
     chat_history: Optional[List[Dict[str, str]]] = None,
     ethical_analysis: Optional[Dict[str, Any]] = None,
     analisis_estructurado: Optional[Dict[str, Any]] = None,
+    explicacion_semaforo: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
-    """Construye el dict del reporte que se muestra en la UI y se persiste en Firestore."""
+    """
+    Construye el dict del reporte que se muestra en la UI y se persiste en Firestore.
+
+    `explicacion_semaforo` es `ResultadoSemaforo.como_dict()` (atribución de cada punto
+    de severidad y contrafactuales): se guarda dentro de `AnalisisEtico["xai"]`.
+    """
     resumen_paciente = (
         f"Paciente {caso.nombre_paciente}, {caso.edad} años, "
         f"género {caso.genero}, condición {caso.condicion}."
@@ -54,6 +64,7 @@ def generar_reporte_completo(
         "Fecha Análisis (UTC)": datetime.now(timezone.utc).isoformat(),
         "Analista": caso.nombre_analista,
         "Resumen del Paciente": resumen_paciente,
+        "Dominio Clínico": getattr(caso, "dominio_clinico", "Otro"),
         "Dilema Ético Principal (Seleccionado)": caso.dilema_etico,
         "Dilema Sugerido por IA": dilema_sugerido or "",
         "Descripción Detallada del Caso": caso.descripcion_caso,
@@ -66,11 +77,21 @@ def generar_reporte_completo(
             "Familia/Paciente": caso.perspectivas["familia"],
             "Comité de Bioética": caso.perspectivas["comite"],
         },
-        "AnalisisEtico": ethical_analysis or {},
+        # Variables estructuradas del paciente (sin nombre) para la base analítica
+        "DatosEstructurados": (
+            caso.datos_estructurados() if hasattr(caso, "datos_estructurados") else {}
+        ),
+        "AnalisisEtico": dict(ethical_analysis or {}),
+        # Indicadores cuantitativos de deliberación (consenso, disenso, W de Kendall)
+        "IndicadoresDeliberacion": calcular_indicadores(caso.perspectivas),
+        "Tiempo de Deliberación (s)": getattr(caso, "tiempo_deliberacion_s", 0),
         "Análisis Deliberativo (IA)": "",
         "Historial del Chat de Deliberación": chat_history or [],
         "Trazabilidad IA": {},
     }
+
+    if explicacion_semaforo:
+        reporte["AnalisisEtico"]["xai"] = explicacion_semaforo
 
     if analisis_estructurado:
         # Salida estructurada de Kiro (K1), útil para auditoría y para el PDF
@@ -158,6 +179,10 @@ def anonimizar_reporte_para_ia(reporte: Dict[str, Any], anonimizador) -> Dict[st
         "Analista",
         "schema_version",
         "Fecha Análisis (UTC)",
+        # La validación experta y el tiempo son metadatos de investigación: no
+        # aportan a la deliberación y no deben sesgar al modelo.
+        "ValidacionExperta",
+        "Tiempo de Deliberación (s)",
     }
 
     limpio: Dict[str, Any] = {}

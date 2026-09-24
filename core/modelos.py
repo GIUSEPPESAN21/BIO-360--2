@@ -37,6 +37,22 @@ PERSPECTIVAS_COLORES_TRANSLUCIDOS = {
 }
 COLOR_POR_DEFECTO = "#6c757d"
 
+#: Dominios clínicos de la base de casos de DeliberIA. El proyecto compromete dos
+#: dominios de alta complejidad ética: cuidados paliativos y un segundo dominio (UCI u
+#: oncología) a concertar con el comité de ética de la sede. El resto permite registrar
+#: casos fuera de esos dominios sin mezclarlos en el análisis.
+DOMINIOS_CLINICOS = (
+    "Cuidados Paliativos",
+    "Unidad de Cuidados Intensivos (UCI)",
+    "Oncología",
+    "Pediatría / Neonatología",
+    "Otro",
+)
+DOMINIO_POR_DEFECTO = "Otro"
+
+CONDICIONES = ("Estable", "Crítico", "Terminal", "Neonato")
+GENEROS = ("Masculino", "Femenino", "Otro")
+
 
 # --- Utilidades de conversión segura ---------------------------------------------
 
@@ -75,9 +91,14 @@ class CasoBioetico:
         self.descripcion_caso = safe_str(kwargs.get("descripcion_caso"))
         self.antecedentes_culturales = safe_str(kwargs.get("antecedentes_culturales"))
         self.condicion = safe_str(kwargs.get("condicion", "Estable"))
+        dominio = safe_str(kwargs.get("dominio_clinico"), DOMINIO_POR_DEFECTO)
+        self.dominio_clinico = dominio if dominio in DOMINIOS_CLINICOS else DOMINIO_POR_DEFECTO
         self.semanas_gestacion = safe_int(kwargs.get("semanas_gestacion"))
         self.puntos_clave_ia = safe_str(kwargs.get("puntos_clave_ia"))
         self.ai_clinical_analysis_summary = safe_str(kwargs.get("ai_clinical_analysis_summary"))
+        # Segundos entre el inicio del registro del caso y su envío (indicador de
+        # "tiempo de deliberación" del proyecto DeliberIA). 0 = no medido.
+        self.tiempo_deliberacion_s = max(0, safe_int(kwargs.get("tiempo_deliberacion_s")))
         self.perspectivas: Dict[str, Dict[str, int]] = {
             "medico": self._extract_perspective("medico", kwargs),
             "familia": self._extract_perspective("familia", kwargs),
@@ -91,6 +112,16 @@ class CasoBioetico:
             "beneficencia": safe_int(kwargs.get(f"nivel_beneficencia_{prefix}")),
             "no_maleficencia": safe_int(kwargs.get(f"nivel_no_maleficencia_{prefix}")),
             "justicia": safe_int(kwargs.get(f"nivel_justicia_{prefix}")),
+        }
+
+    def datos_estructurados(self) -> Dict[str, Any]:
+        """Variables del caso en forma estructurada (para la base de datos analítica)."""
+        return {
+            "edad": self.edad,
+            "genero": self.genero,
+            "condicion": self.condicion,
+            "semanas_gestacion": self.semanas_gestacion,
+            "dominio_clinico": self.dominio_clinico,
         }
 
     def nombres_pii(self) -> list[str]:

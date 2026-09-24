@@ -165,3 +165,209 @@ def generar_todas_las_figuras(fuente: Any) -> Dict[str, Optional[go.Figure]]:
         "consenso": figura_consenso(fuente),
         "equilibrio": figura_equilibrio(fuente),
     }
+
+
+# --- DeliberIA: indicadores de deliberación y explicabilidad (XAI) -------------------
+
+COLOR_SEVERIDAD = {"Bajo": "#16A34A", "Moderado": "#D97706", "Crítico": "#DC2626"}
+COLOR_PRIMARIO = "#2563EB"
+COLOR_NEUTRO = "#64748B"
+
+
+def figura_divergencia(fuente: Any) -> Optional[go.Figure]:
+    """
+    Mapa de calor de divergencia: cuánto se aparta cada perspectiva de la media del
+    grupo en cada principio. Rojo = pondera por encima del grupo; azul = por debajo.
+    Hace visible DÓNDE está el disenso, no solo cuánto hay.
+    """
+    perspectivas = normalizar_perspectivas(fuente)
+    activas = {k: v for k, v in perspectivas.items() if sum(v.values()) > 0}
+    if len(activas) < 2:
+        return None
+    try:
+        medias = {p: np.mean([v[p] for v in activas.values()]) for p in PRINCIPIOS}
+        z = [[round(v[p] - medias[p], 2) for p in PRINCIPIOS] for v in activas.values()]
+        fig = go.Figure(
+            go.Heatmap(
+                z=z,
+                x=list(PRINCIPIOS_LABELS),
+                y=[_nombre(k) for k in activas],
+                zmin=-3, zmax=3, zmid=0,
+                colorscale="RdBu_r",
+                text=[[f"{val:+.1f}" for val in fila] for fila in z],
+                texttemplate="%{text}",
+                colorbar=dict(title="Δ vs. media"),
+                hovertemplate="%{y} · %{x}: %{z:+.2f}<extra></extra>",
+            )
+        )
+        fig.update_layout(title_text="<b>Mapa de Divergencia entre Perspectivas</b>", font_size=13)
+        return fig
+    except Exception as e:
+        logger.error("Error generando mapa de divergencia: %s", e)
+        return None
+
+
+def figura_contribuciones(xai: Optional[Dict[str, Any]]) -> Optional[go.Figure]:
+    """
+    Atribución de la severidad (XAI): cascada con los puntos que aporta cada hallazgo
+    del semáforo, y líneas en los umbrales de Moderado y Crítico.
+    """
+    hallazgos = (xai or {}).get("hallazgos") or []
+    if not hallazgos:
+        return None
+    try:
+        from core.etica import (
+            ETIQUETAS_TIPO,
+            UMBRAL_SEVERIDAD_CRITICO,
+            UMBRAL_SEVERIDAD_MODERADO,
+        )
+
+        etiquetas, valores = [], []
+        for i, h in enumerate(hallazgos, 1):
+            partes = [ETIQUETAS_TIPO.get(h.get("tipo"), h.get("tipo", ""))]
+            if h.get("perspectiva"):
+                partes.append(_nombre(h["perspectiva"]))
+            if h.get("principio"):
+                partes.append(h["principio"].replace("_", " "))
+            etiquetas.append(f"{i}. " + " · ".join(partes))
+            valores.append(safe_int(h.get("puntos")))
+        fig = go.Figure(
+            go.Waterfall(
+                x=etiquetas + ["Total"],
+                y=valores + [0],
+                measure=["relative"] * len(valores) + ["total"],
+                increasing=dict(marker_color="#F59E0B"),
+                totals=dict(marker_color=COLOR_SEVERIDAD.get(xai.get("severidad"), COLOR_NEUTRO)),
+                connector=dict(line=dict(color="#CBD5E1")),
+            )
+        )
+        for umbral, texto in (
+            (UMBRAL_SEVERIDAD_MODERADO, "Moderado"),
+            (UMBRAL_SEVERIDAD_CRITICO, "Crítico"),
+        ):
+            fig.add_hline(y=umbral, line_dash="dash", line_color=COLOR_SEVERIDAD[texto],
+                          annotation_text=f"Umbral {texto} ({umbral})", annotation_position="top left")
+        fig.update_layout(
+            title_text="<b>Atribución de la Severidad por Hallazgo (XAI)</b>",
+            yaxis_title="Puntos de severidad", showlegend=False, font_size=12,
+            xaxis=dict(tickangle=-30),
+        )
+        return fig
+    except Exception as e:
+        logger.error("Error generando gráfico de contribuciones: %s", e)
+        return None
+
+
+def figura_consenso_por_principio(indicadores: Optional[Dict[str, Any]]) -> Optional[go.Figure]:
+    """Índice de consenso (0-1) por principio, con los cortes de clasificación."""
+    por_principio = (indicadores or {}).get("por_principio") or {}
+    datos = [(v.get("etiqueta", k), v.get("indice_consenso")) for k, v in por_principio.items()]
+    datos = [(e, v) for e, v in datos if v is not None]
+    if not datos:
+        return None
+    try:
+        from core.indicadores import CORTE_CONSENSO_ALTO, CORTE_CONSENSO_MODERADO
+
+        colores = [
+            "#16A34A" if v >= CORTE_CONSENSO_ALTO
+            else "#D97706" if v >= CORTE_CONSENSO_MODERADO
+            else "#DC2626"
+            for _, v in datos
+        ]
+        fig = go.Figure(
+            go.Bar(x=[e for e, _ in datos], y=[v for _, v in datos], marker_color=colores,
+                   text=[f"{v:.2f}" for _, v in datos], textposition="outside")
+        )
+        fig.add_hline(y=CORTE_CONSENSO_ALTO, line_dash="dot", line_color="#16A34A")
+        fig.add_hline(y=CORTE_CONSENSO_MODERADO, line_dash="dot", line_color="#D97706")
+        fig.update_layout(title_text="<b>Índice de Consenso por Principio</b>",
+                          yaxis=dict(range=[0, 1.15], title="1 = acuerdo total"), font_size=13)
+        return fig
+    except Exception as e:
+        logger.error("Error generando consenso por principio: %s", e)
+        return None
+
+
+# --- DeliberIA: analítica de la base y auditoría de sesgos ---------------------------
+
+def figura_distribucion_severidad(resumen_por_grupo: Dict[str, Dict[str, Any]]) -> Optional[go.Figure]:
+    """Barras apiladas de severidad por grupo (p. ej., por dominio clínico)."""
+    if not resumen_por_grupo:
+        return None
+    try:
+        grupos = list(resumen_por_grupo)
+        fig = go.Figure()
+        for nivel in ("Bajo", "Moderado", "Crítico"):
+            fig.add_trace(go.Bar(
+                name=nivel, x=grupos,
+                y=[resumen_por_grupo[g]["distribucion_severidad"].get(nivel, 0) for g in grupos],
+                marker_color=COLOR_SEVERIDAD[nivel],
+            ))
+        fig.update_layout(barmode="stack", title_text="<b>Semáforo Ético por Grupo</b>",
+                          yaxis_title="Casos", font_size=12)
+        return fig
+    except Exception as e:
+        logger.error("Error generando distribución de severidad: %s", e)
+        return None
+
+
+def figura_paridad(paridad: Dict[str, Any]) -> Optional[go.Figure]:
+    """Tasa de severidad elevada por subgrupo, con la banda de la regla de 4/5."""
+    subgrupos = (paridad or {}).get("subgrupos") or []
+    if not subgrupos:
+        return None
+    try:
+        x = [f"{s['subgrupo']} (n={s['n']})" for s in subgrupos]
+        y = [s["tasa_severidad_elevada"] or 0 for s in subgrupos]
+        colores = [COLOR_PRIMARIO if s["suficiente"] else "#CBD5E1" for s in subgrupos]
+        fig = go.Figure(go.Bar(x=x, y=y, marker_color=colores,
+                               text=[f"{v:.0%}" for v in y], textposition="outside"))
+        validos = [s["tasa_severidad_elevada"] for s in subgrupos if s["suficiente"]]
+        if validos:
+            fig.add_hline(y=max(validos) * 0.8, line_dash="dash", line_color="#DC2626",
+                          annotation_text="80% de la tasa máxima (regla 4/5)",
+                          annotation_position="bottom right")
+        fig.update_layout(
+            title_text=f"<b>Paridad de Severidad Elevada — {paridad.get('etiqueta', '')}</b>",
+            yaxis=dict(range=[0, 1.1], tickformat=".0%", title="Moderado o Crítico"),
+            font_size=12,
+        )
+        return fig
+    except Exception as e:
+        logger.error("Error generando gráfico de paridad: %s", e)
+        return None
+
+
+def figura_matriz_calibracion(calibracion: Dict[str, Any]) -> Optional[go.Figure]:
+    """Matriz de confusión: riesgo estimado por la IA vs. semáforo determinista."""
+    matriz = (calibracion or {}).get("matriz_confusion") or {}
+    if not matriz or not calibracion.get("n_pares_riesgo"):
+        return None
+    try:
+        niveles = ["Bajo", "Moderado", "Crítico"]
+        z = [[matriz.get(ia, {}).get(m, 0) for m in niveles] for ia in niveles]
+        fig = go.Figure(go.Heatmap(
+            z=z, x=[f"Motor: {n}" for n in niveles], y=[f"IA: {n}" for n in niveles],
+            colorscale="Blues", text=z, texttemplate="%{text}", showscale=False,
+        ))
+        fig.update_layout(title_text="<b>Calibración IA vs. Motor Determinista</b>", font_size=12)
+        return fig
+    except Exception as e:
+        logger.error("Error generando matriz de calibración: %s", e)
+        return None
+
+
+def figura_histograma(valores: list, titulo: str, eje_x: str, rango: Optional[list] = None) -> Optional[go.Figure]:
+    valores = [v for v in valores if v not in ("", None)]
+    if not valores:
+        return None
+    try:
+        fig = go.Figure(go.Histogram(x=valores, nbinsx=10, marker_color=COLOR_PRIMARIO))
+        fig.update_layout(title_text=f"<b>{titulo}</b>", xaxis_title=eje_x, yaxis_title="Casos",
+                          font_size=12, bargap=0.05)
+        if rango:
+            fig.update_xaxes(range=rango)
+        return fig
+    except Exception as e:
+        logger.error("Error generando histograma: %s", e)
+        return None

@@ -28,22 +28,28 @@ from __future__ import annotations
 
 import pytest
 
+from pathlib import Path
+
 from streamlit.testing.v1 import AppTest
 
 TIEMPO_LIMITE = 120
+# `AppTest.from_file` resuelve las rutas relativas contra el archivo que lo invoca
+# (tests/), no contra el directorio de trabajo: con "app.py" a secas buscaba
+# tests/app.py y las 13 pruebas fallaban en la fixture. Se usa la ruta absoluta.
+RUTA_APP = str(Path(__file__).resolve().parent.parent / "app.py")
 USUARIO_DE_PRUEBA = {"localId": "uid_de_prueba", "email": "prueba@ejemplo.com"}
 
 
 @pytest.fixture
 def app_sin_autenticar() -> AppTest:
-    at = AppTest.from_file("app.py", default_timeout=TIEMPO_LIMITE)
+    at = AppTest.from_file(RUTA_APP, default_timeout=TIEMPO_LIMITE)
     at.run()
     return at
 
 
 @pytest.fixture
 def app_autenticada() -> AppTest:
-    at = AppTest.from_file("app.py", default_timeout=TIEMPO_LIMITE)
+    at = AppTest.from_file(RUTA_APP, default_timeout=TIEMPO_LIMITE)
     at.session_state["user"] = dict(USUARIO_DE_PRUEBA)
     at.run()
     return at

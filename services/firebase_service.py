@@ -23,7 +23,11 @@ logger = logging.getLogger(__name__)
 
 COLECCION_USUARIOS = "usuarios"
 SUBCOLECCION_CASOS = "casos"
+SUBCOLECCION_USABILIDAD = "validacion_usabilidad"
 PAGINA_POR_DEFECTO = 20
+
+#: Tope de casos que se leen para la analítica de la base (acota costo y memoria).
+TOPE_ANALITICA = 1000
 
 # Campos ligeros para el listado (no descarga el reporte entero)
 CAMPOS_RESUMEN = ("ID del Caso", "Fecha Análisis", "Dilema Ético Principal (Seleccionado)")
@@ -197,9 +201,64 @@ class CasosRepository:
         siguiente = docs[-1] if len(docs) == limite else None
         return resumenes, siguiente
 
+    def iterar_reportes(self, tope: int = TOPE_ANALITICA) -> List[Dict[str, Any]]:
+        """
+        Lee hasta `tope` reportes completos para construir la base analítica.
+
+        Solo se usa bajo demanda desde la pestaña de investigación; los reportes se
+        convierten inmediatamente en registros sin PII (`core.dataset`).
+        """
+        from services.reportes import limpiar_claves_legadas
+
+        try:
+            docs = self._coleccion().limit(tope).stream()
+            return [limpiar_claves_legadas(d.to_dict() or {}) for d in docs]
+        except Exception as e:
+            logger.error("Error leyendo los casos para analítica: %s", e)
+            return []
+
     def contar_aproximado(self, tope: int = 100) -> int:
         """Cuenta hasta `tope` documentos (evita escanear colecciones grandes)."""
         try:
             return len(list(self._coleccion().limit(tope).stream()))
         except Exception:
             return 0
+
+
+# --- Validación de usabilidad (SUS) --------------------------------------------------
+
+class UsabilidadRepository:
+    """
+    Cuestionarios SUS de la validación con actores clínicos (Fase 3 de DeliberIA).
+
+    Ruta: `usuarios/{uid}/validacion_usabilidad/{respuestaId}`. Cada envío es un
+    documento nuevo (append-only); `firestore.rules` prohíbe modificarlos o borrarlos.
+    No se guarda el nombre del evaluador, solo su rol.
+    """
+
+    def __init__(self, db: Any, uid: str) -> None:
+        if not uid:
+            raise ValueError("Se requiere un UID de usuario para la validación de usabilidad.")
+        self.db = db
+        self.uid = uid
+
+    def _coleccion(self):
+        return (
+            self.db.collection(COLECCION_USUARIOS)
+            .document(self.uid)
+            .collection(SUBCOLECCION_USABILIDAD)
+        )
+
+    def registrar(self, respuesta: Dict[str, Any]) -> None:
+        doc = self._coleccion().document()
+        if hasattr(doc, "create"):
+            doc.create(respuesta)
+        else:  # pragma: no cover - compatibilidad con stubs
+            doc.set(respuesta)
+
+    def listar(self, tope: int = 500) -> List[Dict[str, Any]]:
+        try:
+            return [d.to_dict() or {} for d in self._coleccion().limit(tope).stream()]
+        except Exception as e:
+            logger.error("Error leyendo la validación de usabilidad: %s", e)
+            return []

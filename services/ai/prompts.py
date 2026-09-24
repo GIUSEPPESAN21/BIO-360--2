@@ -23,7 +23,7 @@ from typing import Any, Dict, List, Optional
 # --- Versiones de prompt (incrementar al modificar el texto) -----------------------
 
 PROMPT_VERSION_ANALISIS_CLINICO = "analisis_clinico_v2"
-PROMPT_VERSION_DELIBERACION = "deliberacion_comite_v2"
+PROMPT_VERSION_DELIBERACION = "deliberacion_comite_v3"
 PROMPT_VERSION_CHAT = "chat_deliberativo_v2"
 PROMPT_VERSION_EXPLICACION_SEMAFORO = "explicacion_semaforo_v1"
 
@@ -180,7 +180,11 @@ def prompt_deliberacion(
         "comité), (3) marco normativo aplicable citando solo la base verificada, "
         "(4) cursos de acción con su fundamento ético, (5) recomendación final y "
         "advertencias. Señala explícitamente los desequilibrios detectados en las "
-        "ponderaciones.\n\n"
+        "ponderaciones.\n"
+        "Usa los 'IndicadoresDeliberacion' del caso (calculados de forma determinista por "
+        "el sistema, no los recalcules): explica qué significan el índice de consenso, la "
+        "W de Kendall y los puntos de disenso, y propone cómo el comité podría abordar "
+        "cada punto de disenso. Ten en cuenta el 'Dominio Clínico' del caso.\n\n"
         "=== CASO (ANONIMIZADO) ===\n"
         f"{reporte_json}"
     )

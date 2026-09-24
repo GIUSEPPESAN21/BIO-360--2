@@ -42,6 +42,11 @@ ACCION_CHAT = "consulta_chat"
 ACCION_EXPLICACION_SEMAFORO = "explicacion_semaforo_etico"
 ACCION_CASO_CREADO = "caso_creado"
 ACCION_CONSENTIMIENTO = "consentimiento_generado"
+# DeliberIA: acciones del flujo de investigación
+ACCION_VALIDACION_EXPERTA = "validacion_experta_registrada"
+ACCION_SUS_REGISTRADO = "cuestionario_sus_registrado"
+ACCION_EXPORTACION_DATASET = "base_de_datos_exportada"
+ACCION_AUDITORIA_SESGOS = "auditoria_sesgos_generada"
 
 
 def _hash_texto(texto: str) -> str:
